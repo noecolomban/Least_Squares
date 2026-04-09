@@ -1,0 +1,123 @@
+from abc import ABC, abstractmethod
+import numpy as np
+import matplotlib.pyplot as plt
+
+class SGD(ABC):
+    def __init__(self, sim, w0):
+        self.sim = sim
+        self.w0 = w0.reshape(-1, 1)
+        self.list_At = {}
+
+        # On s'assure d'avoir les valeurs propres sous forme de vecteur pour les calculs
+        if self.sim.Lambda_vals is None:
+            self.sim.compute_lambda()
+        self.L = self.sim.Lambda_vals 
+
+    @abstractmethod
+    def get_step(self, t):
+        pass
+
+    def get_A_matrix(self, t):
+        if t in self.list_At:
+            return self.list_At[t]
+        
+        lr = self.get_step(t)
+        
+        # Terme 1 : (I - lr*L)^2 (Diagonale)
+        term1 = np.diag((1 - lr * self.L)**2)
+        
+        # Terme 2 : lr^2 * L^2 (Doit être une matrice Diagonale)
+        term2 = np.diag(lr**2 * (self.L**2))
+        
+        # Terme 3 : lr^2 * lambda * lambda^T (Matrice pleine / outer product)
+        term3 = (lr**2) * np.outer(self.L, self.L)
+
+        self.list_At[t] = term1 + term2 + term3
+        return self.list_At[t]
+
+    def train(self, T=100, label="SGD", show=True):
+        w = self.w0
+        self.sim.n_samples = T
+        X, Y = self.sim.generate_data()
+        loss = []
+        for t in range(T):
+            x, y = X[t].reshape(-1,1), Y[t]
+#           print(w.shape, x.shape, y.shape)
+            g = x @ (np.dot(x.T , w) - y)
+            w = w - self.get_step(t) * g
+            loss.append(self.sim.compute_theoretical_risk(w))
+        if show:
+            plt.plot(loss, label=label)
+            plt.xlabel("Epoch")
+            plt.ylabel("loss")
+            plt.legend()
+        return np.array(loss)
+
+
+    def compute_theoretical_risk(self, T):
+        """
+        Calcule le risque à l'étape T+1 de manière efficace O(T).
+        """
+        # 1. Initialisation de m0 (biais initial dans la base propre)
+        diff_0 = self.w0 - self.sim.w_star
+        Sigma_0 = diff_0 @ diff_0.T
+        _, m_t = self.sim.compute_M_t(Sigma_0) # m_t est le vecteur m0
+        
+        v_t = np.zeros(self.sim.dim)
+        
+        for t in range(T + 1):
+            lr = self.get_step(t)
+            At = self.get_A_matrix(t)
+            
+            m_t = At @ m_t
+            v_t = At @ v_t + (lr**2 * self.sim.sigma**2) * self.L
+
+        bias_part = np.sum(self.L * m_t)
+        variance_part = np.sum(self.L * v_t)
+        irreducible_noise = self.sim.sigma**2
+        
+        return 0.5 * (bias_part + variance_part + irreducible_noise)
+    
+
+
+class SGD_poly(SGD):
+    def __init__(self, sim, w0, eta, gamma):
+        super().__init__(sim, w0)
+        self.eta = eta
+        self.gamma = gamma
+
+    def get_step(self, t):
+            # On évite t=0 pour la division si gamma > 0
+            return self.eta / (t + 1)**self.gamma
+    
+    def plot(self, T=100):
+        X = np.arange(T)
+        Y = [self.compute_theoretical_risk(t) for t in range(T)]
+        plt.plot(X, Y, label = rf"Theory $\gamma$ = {self.gamma:.2f}", linewidth=3)
+        plt.title(fr"$\eta_t = \frac{{\eta}}{{t^\gamma}}$, $\gamma = {self.gamma}$, $\eta = {self.eta}$")
+        plt.xlabel("iteration")
+        plt.ylabel("loss")
+        plt.legend()
+
+
+class SGD_wsd(SGD):
+    def __init__(self, sim, w0, T0, T, eta):
+        super().__init__(sim, w0)
+        self.T0 = T0
+        self.T = T
+        self.eta = eta
+    
+    def get_step(self, t):
+            if t < self.T0:
+                 return self.eta
+            else:
+                return max(0,self.eta *(self.T + 1 - t) / (self.T - self.T0 + 1))
+    
+    def plot(self, T=100):
+        X = np.arange(T)
+        Y = [self.compute_theoretical_risk(t) for t in range(T)]
+        plt.plot(X, Y, label = rf"Theory $T0/T$ = {self.T0/self.T:.2f}", linewidth=3)
+        plt.title(rf"$T0 = {self.T0}$, $\eta = {self.eta}$")
+        plt.xlabel("iteration")
+        plt.ylabel("loss")
+        plt.legend()
