@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 class LinearRegression:
     def __init__(self, dim=5, sigma=0.1, n_samples=1000):
         """      
-        :param dim: Dimension des vecteurs phi (d)
-        :param sigma: Écart-type du bruit epsilon
-        :param n_samples: Nombre d'échantillons (N)
+        :param dim: Dimension of phi vectors (d)
+        :param sigma: Standard deviation of noise epsilon
+        :param n_samples: Number of samples (N)
         """
         self.dim = dim
         self.sigma = sigma
@@ -22,13 +22,13 @@ class LinearRegression:
         self.x_hat = None
 
     def _generate_spd_matrix(self, d):
-        """Génère une matrice H telle que H = QΛQ^T > 0"""
+        """Generate a matrix H such that H = QΛQ^T > 0"""
         A = np.random.randn(d, d)
         H = A @ A.T + 0.1 * np.eye(d)
         return H
 
     def generate_data(self):
-        """Génère les échantillons {(xi, yi)} selon phi ~ N(0, H) et y = phi.T*x* + eps"""
+        """Generate samples {(phi_i, y_i)} according to phi ~ N(0, H) and y = phi.T*x* + eps"""
         self.phi = np.random.multivariate_normal(
             np.zeros(self.dim), self.H, size=self.n_samples
         )
@@ -39,7 +39,7 @@ class LinearRegression:
         return self.phi, self.Y
 
     def fit(self):
-        """Calcule l'estimateur des moindres carrés (x_hat)"""
+        """Compute the least squares estimator (x_hat)"""
         if self.phi is None:
             self.generate_data()
             
@@ -47,7 +47,7 @@ class LinearRegression:
         return self.x_hat
 
     def compute_empirical_risk(self):
-        """Calcule R_emp = 1/2 * moyenne((Phi*x - Y)^2)"""
+        """Compute R_emp = 1/2 * mean((Phi*x - Y)^2)"""
         if self.x_hat is None:
             self.fit()
         
@@ -57,8 +57,8 @@ class LinearRegression:
 
     def compute_theoretical_risk(self, x=None):
         """
-        Calcule R(x) = 1/2 * E[(<x, phi> - y)^2] 
-        Analytiquement : 1/2 * (x - x*)^T H (x - x*) + 1/2 * sigma^2
+        Compute R(x) = 1/2 * E[(<x, phi> - y)^2] 
+        Analytically: 1/2 * (x - x*)^T H (x - x*) + 1/2 * sigma^2
         """
         if x is None:
             x = self.x_hat
@@ -72,10 +72,9 @@ class LinearRegression:
     
     def compute_lambda(self):
         """
-        Calcule l'eigendecomposition de H tel que H = Q * Lambda * Q^T.
-        Retourne la matrice diagonale Lambda.
+        Compute the eigendecomposition of H such that H = Q * Lambda * Q^T.
+        Return the diagonal matrix Lambda.
         """
-        # eigenvalues sont retournés dans l'ordre croissant par défaut
         self.Lambda_vals, self.Q = np.linalg.eigh(self.H)
         
         Lambda_matrix = np.diag(self.Lambda_vals)
@@ -85,8 +84,8 @@ class LinearRegression:
 
     def get_restriction(self, i, j):
         """
-        Calcule Lambda_{i:j} comme défini dans le texte : diag(lambda_i, ..., lambda_j).
-        Note : Les indices i et j suivent la notation mathématique (commençant à 0 ou 1 selon le contexte).
+        Compute Lambda_{i:j} as defined in the text: diag(lambda_i, ..., lambda_j).
+        Note: Indices i and j follow mathematical notation (starting at 0 or 1 depending on context).
         """
         if self.Lambda_vals is None:
             self.compute_lambda()
@@ -96,27 +95,27 @@ class LinearRegression:
 
     def compute_Sigma_t(self, list_of_x_t):
         """
-        Calcule la matrice de covariance empirique Sigma_t à partir d'une liste
-        de vecteurs de poids (itérés) obtenus à l'étape t.
+        Compute the empirical covariance matrix Sigma_t from a list
+        of weight vectors (iterates) obtained at step t.
         Sigma_t = E[(x_t - x*)(x_t - x*)^T]
         """
         W = np.array(list_of_x_t).reshape(-1, self.dim)
         
-        diff = W - self.x_star.T  # Broadcasting sur toutes les simulations
+        diff = W - self.x_star.T
         
-        n_sims = len(list_of_w_t)
+        n_sims = len(list_of_x_t)
         Sigma_t = (diff.T @ diff) / n_sims
         return Sigma_t
 
     def compute_M_t(self, Sigma_t):
         """
-        Calcule Mt = Q * Sigma_t * Q^T (la covariance dans l'espace des vecteurs propres)
-        et mt = diag(Mt).
+        Compute Mt = Q * Sigma_t * Q^T (the covariance in the eigenvector space)
+        and mt = diag(Mt).
         """
         if self.Q is None:
             self.compute_lambda()
             
-        Mt = self.Q.T @ Sigma_t @ self.Q # Rotation dans la base des vecteurs propres
+        Mt = self.Q.T @ Sigma_t @ self.Q
  
         mt = np.diag(Mt)
         

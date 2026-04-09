@@ -8,7 +8,6 @@ class SGD(ABC):
         self.x0 = x0.reshape(-1, 1)
         self.list_At = {}
 
-        # On s'assure d'avoir les valeurs propres sous forme de vecteur pour les calculs
         if self.sim.Lambda_vals is None:
             self.sim.compute_lambda()
         self.L = self.sim.Lambda_vals 
@@ -23,13 +22,10 @@ class SGD(ABC):
         
         lr = self.get_step(t)
         
-        # Terme 1 : (I - lr*L)^2 (Diagonale)
         term1 = np.diag((1 - lr * self.L)**2)
         
-        # Terme 2 : lr^2 * L^2 (Doit être une matrice Diagonale)
         term2 = np.diag(lr**2 * (self.L**2))
         
-        # Terme 3 : lr^2 * lambda * lambda^T (Matrice pleine / outer product)
         term3 = (lr**2) * np.outer(self.L, self.L)
 
         self.list_At[t] = term1 + term2 + term3
@@ -42,7 +38,6 @@ class SGD(ABC):
         loss = []
         for t in range(T):
             phi, y = Phi[t].reshape(-1,1), Y[t]
-#           print(x.shape, phi.shape, y.shape)
             g = phi @ (np.dot(phi.T , x) - y)
             x = x - self.get_step(t) * g
             loss.append(self.sim.compute_theoretical_risk(x))
@@ -56,12 +51,11 @@ class SGD(ABC):
 
     def compute_theoretical_risk(self, T):
         """
-        Calcule le risque à l'étape T+1 de manière efficace O(T).
+        Compute the risk at step T+1 efficiently in O(T).
         """
-        # 1. Initialisation de m0 (biais initial dans la base propre)
         diff_0 = self.x0 - self.sim.x_star
         Sigma_0 = diff_0 @ diff_0.T
-        _, m_t = self.sim.compute_M_t(Sigma_0) # m_t est le vecteur m0
+        _, m_t = self.sim.compute_M_t(Sigma_0)
         
         v_t = np.zeros(self.sim.dim)
         
@@ -87,8 +81,7 @@ class SGD_poly(SGD):
         self.gamma = gamma
 
     def get_step(self, t):
-            # On évite t=0 pour la division si gamma > 0
-            return self.eta / (t + 1)**self.gamma
+        return self.eta / (t + 1)**self.gamma
     
     def plot(self, T=100):
         X = np.arange(T)
