@@ -3,9 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class SGD(ABC):
-    def __init__(self, sim, w0):
+    def __init__(self, sim, x0):
         self.sim = sim
-        self.w0 = w0.reshape(-1, 1)
+        self.x0 = x0.reshape(-1, 1)
         self.list_At = {}
 
         # On s'assure d'avoir les valeurs propres sous forme de vecteur pour les calculs
@@ -36,16 +36,16 @@ class SGD(ABC):
         return self.list_At[t]
 
     def train(self, T=100, label="SGD", show=True):
-        w = self.w0
+        x = self.x0
         self.sim.n_samples = T
-        X, Y = self.sim.generate_data()
+        Phi, Y = self.sim.generate_data()
         loss = []
         for t in range(T):
-            x, y = X[t].reshape(-1,1), Y[t]
-#           print(w.shape, x.shape, y.shape)
-            g = x @ (np.dot(x.T , w) - y)
-            w = w - self.get_step(t) * g
-            loss.append(self.sim.compute_theoretical_risk(w))
+            phi, y = Phi[t].reshape(-1,1), Y[t]
+#           print(x.shape, phi.shape, y.shape)
+            g = phi @ (np.dot(phi.T , x) - y)
+            x = x - self.get_step(t) * g
+            loss.append(self.sim.compute_theoretical_risk(x))
         if show:
             plt.plot(loss, label=label)
             plt.xlabel("Epoch")
@@ -59,7 +59,7 @@ class SGD(ABC):
         Calcule le risque à l'étape T+1 de manière efficace O(T).
         """
         # 1. Initialisation de m0 (biais initial dans la base propre)
-        diff_0 = self.w0 - self.sim.w_star
+        diff_0 = self.x0 - self.sim.x_star
         Sigma_0 = diff_0 @ diff_0.T
         _, m_t = self.sim.compute_M_t(Sigma_0) # m_t est le vecteur m0
         
@@ -81,8 +81,8 @@ class SGD(ABC):
 
 
 class SGD_poly(SGD):
-    def __init__(self, sim, w0, eta, gamma):
-        super().__init__(sim, w0)
+    def __init__(self, sim, x0, eta, gamma):
+        super().__init__(sim, x0)
         self.eta = eta
         self.gamma = gamma
 
@@ -101,8 +101,8 @@ class SGD_poly(SGD):
 
 
 class SGD_wsd(SGD):
-    def __init__(self, sim, w0, T0, T, eta):
-        super().__init__(sim, w0)
+    def __init__(self, sim, x0, T0, T, eta):
+        super().__init__(sim, x0)
         self.T0 = T0
         self.T = T
         self.eta = eta

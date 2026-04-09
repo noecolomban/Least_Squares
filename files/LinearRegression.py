@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 class LinearRegression:
     def __init__(self, dim=5, sigma=0.1, n_samples=1000):
         """      
-        :param dim: Dimension des vecteurs x (d)
+        :param dim: Dimension des vecteurs phi (d)
         :param sigma: Écart-type du bruit epsilon
         :param n_samples: Nombre d'échantillons (N)
         """
@@ -15,11 +15,11 @@ class LinearRegression:
         
         self.H = self._generate_spd_matrix(dim)
         self.compute_lambda()
-        self.w_star = np.random.randn(dim, 1)
+        self.x_star = np.random.randn(dim, 1)
         
-        self.X = None
+        self.phi = None
         self.Y = None
-        self.w_hat = None
+        self.x_hat = None
 
     def _generate_spd_matrix(self, d):
         """Génère une matrice H telle que H = QΛQ^T > 0"""
@@ -28,43 +28,43 @@ class LinearRegression:
         return H
 
     def generate_data(self):
-        """Génère les échantillons {(xi, yi)} selon x ~ N(0, H) et y = x.T*w* + eps"""
-        self.X = np.random.multivariate_normal(
+        """Génère les échantillons {(xi, yi)} selon phi ~ N(0, H) et y = phi.T*x* + eps"""
+        self.phi = np.random.multivariate_normal(
             np.zeros(self.dim), self.H, size=self.n_samples
         )
         
         epsilon = np.random.normal(0, self.sigma, size=(self.n_samples, 1))
         
-        self.Y = self.X @ self.w_star + epsilon
-        return self.X, self.Y
+        self.Y = self.phi @ self.x_star + epsilon
+        return self.phi, self.Y
 
     def fit(self):
-        """Calcule l'estimateur des moindres carrés (w_hat)"""
-        if self.X is None:
+        """Calcule l'estimateur des moindres carrés (x_hat)"""
+        if self.phi is None:
             self.generate_data()
             
-        self.w_hat, _, _, _ = np.linalg.lstsq(self.X, self.Y, rcond=None)
-        return self.w_hat
+        self.x_hat, _, _, _ = np.linalg.lstsq(self.phi, self.Y, rcond=None)
+        return self.x_hat
 
     def compute_empirical_risk(self):
-        """Calcule R_emp = 1/2 * moyenne((X*w - Y)^2)"""
-        if self.w_hat is None:
+        """Calcule R_emp = 1/2 * moyenne((Phi*x - Y)^2)"""
+        if self.x_hat is None:
             self.fit()
         
-        predictions = self.X @ self.w_hat
+        predictions = self.phi @ self.x_hat
         risk = 0.5 * np.mean((predictions - self.Y)**2)
         return risk
 
-    def compute_theoretical_risk(self, w=None):
+    def compute_theoretical_risk(self, x=None):
         """
-        Calcule R(w) = 1/2 * E[(<w, x> - y)^2] 
-        Analytiquement : 1/2 * (w - w*)^T H (w - w*) + 1/2 * sigma^2
+        Calcule R(x) = 1/2 * E[(<x, phi> - y)^2] 
+        Analytiquement : 1/2 * (x - x*)^T H (x - x*) + 1/2 * sigma^2
         """
-        if w is None:
-            w = self.w_hat
+        if x is None:
+            x = self.x_hat
             
-        diff_w = w - self.w_star
-        estimation_error = 0.5 * (diff_w.T @ self.H @ diff_w)
+        diff_x = x - self.x_star
+        estimation_error = 0.5 * (diff_x.T @ self.H @ diff_x)
         noise_floor = 0.5 * (self.sigma**2)
         
         total_risk = estimation_error + noise_floor
@@ -94,15 +94,15 @@ class LinearRegression:
         subset = self.Lambda_vals[i:j+1]
         return np.diag(subset)
 
-    def compute_Sigma_t(self, list_of_w_t):
+    def compute_Sigma_t(self, list_of_x_t):
         """
         Calcule la matrice de covariance empirique Sigma_t à partir d'une liste
         de vecteurs de poids (itérés) obtenus à l'étape t.
-        Sigma_t = E[(w_t - w*)(w_t - w*)^T]
+        Sigma_t = E[(x_t - x*)(x_t - x*)^T]
         """
-        W = np.array(list_of_w_t).reshape(-1, self.dim)
+        W = np.array(list_of_x_t).reshape(-1, self.dim)
         
-        diff = W - self.w_star.T  # Broadcasting sur toutes les simulations
+        diff = W - self.x_star.T  # Broadcasting sur toutes les simulations
         
         n_sims = len(list_of_w_t)
         Sigma_t = (diff.T @ diff) / n_sims
