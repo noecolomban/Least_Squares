@@ -3,18 +3,24 @@ import matplotlib.pyplot as plt
 
 
 class LinearRegression:
-    def __init__(self, dim=5, sigma=0.1, n_samples=1000):
+    def __init__(self, dim=5, sigma=0.1, n_samples=1000, H: None | np.ndarray = None):
         """      
         :param dim: Dimension of phi vectors (d)
         :param sigma: Standard deviation of noise epsilon
         :param n_samples: Number of samples (N)
+        :param H: The covariance matrix for the phi vectors
         """
         self.dim = dim
         self.sigma = sigma
         self.n_samples = n_samples
         
-        self.H = self._generate_spd_matrix(dim)
-        self.compute_lambda()
+        if H is not None:
+            assert H.shape == (dim, dim), "H must be a square matrix of shape (dim, dim)"
+            self.H = H
+        else:
+            self.H = self._generate_spd_matrix(dim)
+        
+        self.Lambda, self.Lambda_vals, self.Q = self.compute_lambda()
         self.x_star = np.random.randn(dim, 1)
         
         self.phi = None
@@ -46,22 +52,12 @@ class LinearRegression:
         self.x_hat, _, _, _ = np.linalg.lstsq(self.phi, self.Y, rcond=None)
         return self.x_hat
 
-    def compute_empirical_risk(self):
-        """Compute R_emp = 1/2 * mean((Phi*x - Y)^2)"""
-        if self.x_hat is None:
-            self.fit()
-        
-        predictions = self.phi @ self.x_hat
-        risk = 0.5 * np.mean((predictions - self.Y)**2)
-        return risk
 
-    def compute_theoretical_risk(self, x=None):
+    def compute_risk(self, x):
         """
         Compute R(x) = 1/2 * E[(<x, phi> - y)^2] 
         Analytically: 1/2 * (x - x*)^T H (x - x*) + 1/2 * sigma^2
         """
-        if x is None:
-            x = self.x_hat
             
         diff_x = x - self.x_star
         estimation_error = 0.5 * (diff_x.T @ self.H @ diff_x)
@@ -71,16 +67,14 @@ class LinearRegression:
         return total_risk[0]
     
     def compute_lambda(self):
-        """
-        Compute the eigendecomposition of H such that H = Q * Lambda * Q^T.
-        Return the diagonal matrix Lambda.
-        """
-        self.Lambda_vals, self.Q = np.linalg.eigh(self.H)
+        Lambda_vals, Q = np.linalg.eigh(self.H)
+        # Tri par ordre décroissant
+        idx = np.argsort(Lambda_vals)[::-1]
+        Lambda_vals = Lambda_vals[idx]
+        Q = Q[:, idx]
         
-        Lambda_matrix = np.diag(self.Lambda_vals)
-        self.Lambda = Lambda_matrix
-        self.Lambda_vals = self.Lambda_vals
-        return Lambda_matrix
+        Lambda_matrix = np.diag(Lambda_vals)
+        return Lambda_matrix, Lambda_vals, Q
 
     def get_restriction(self, i, j):
         """
@@ -120,3 +114,20 @@ class LinearRegression:
         mt = np.diag(Mt)
         
         return Mt, mt
+    
+
+class PowerLawRegression(LinearRegression):
+    def __init__(self, dim=5, sigma=0.1, n_samples=1000, exponent=0.5):
+        H = self._generate_power_law_H(dim, exponent)
+        super().__init__(dim, sigma, n_samples, H)
+        self.exponent = exponent
+
+    @staticmethod
+    def _generate_power_law_H(dim, exponent):
+        """Generate a matrix H with eigenvalues that decay as a power law: lambda_i = 1/i^exponent"""
+        A = np.random.randn(dim, dim)
+        Q, _ = np.linalg.qr(A)  # Orthonormalize to get Q
+        Lambda_vals = np.array([1.0 / (i**exponent) for i in range(1, dim + 1)])
+        Lambda_matrix = np.diag(Lambda_vals)
+        H = Q @ Lambda_matrix @ Q.T
+        return H
