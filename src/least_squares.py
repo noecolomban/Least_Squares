@@ -33,13 +33,15 @@ class LinearRegression:
         H = A @ A.T + 0.1 * np.eye(d)
         return H
 
-    def generate_data(self):
+    def generate_data(self, n_samples=None):
+        if n_samples is None:
+            n_samples = self.n_samples
         """Generate samples {(phi_i, y_i)} according to phi ~ N(0, H) and y = phi.T*x* + eps"""
         self.phi = np.random.multivariate_normal(
-            np.zeros(self.dim), self.H, size=self.n_samples
+            np.zeros(self.dim), self.H, size=n_samples
         )
         
-        epsilon = np.random.normal(0, self.sigma, size=(self.n_samples, 1))
+        epsilon = np.random.normal(0, self.sigma, size=(n_samples, 1))
         
         self.Y = self.phi @ self.x_star + epsilon
         return self.phi, self.Y

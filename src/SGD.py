@@ -20,13 +20,11 @@ class BaseSGD(ABC):
         return self._schedule.schedule
     
     def get_step(self, t):
-        assert self._schedule is not None, "Schedule is not defined"
         return self._schedule.schedule[t]
 
     def train(self, label="SGD", show=True):
         x = self.x0
-        self.model.n_samples = self.T
-        Phi, Y = self.model.generate_data()
+        Phi, Y = self.model.generate_data(n_samples=self.T)
         loss = []
         for t in range(self.T):
             phi, y = Phi[t].reshape(-1,1), Y[t]
@@ -62,25 +60,8 @@ class SGD(BaseSGD):
 
     def __init__(self, model: LinearRegression, x0: np.ndarray, schedule: ScheduleBase):
         super().__init__(model, x0, schedule)
-        self.list_At = {}
-
-    def get_A_matrix(self, t):
-        if t in self.list_At:
-            return self.list_At[t]
-        
-        lr = self.get_step(t)
-        term1 = np.diag((1 - lr * self.L)**2)
-        term2 = np.diag(lr**2 * (self.L**2))
-        term3 = (lr**2) * np.outer(self.L, self.L)
-        self.list_At[t] = term1 + term2 + term3
-        return self.list_At[t]
-
 
     def compute_all_theoretical_risks(self) -> np.ndarray:
-        """
-        Compute theoretical risks for all steps 0 to T in a single pass - O(T) instead of O(T²).
-        Returns array of shape (T,) with risk at each step.
-        """
         diff_0 = self.x0 - self.model.x_star
         Sigma_0 = diff_0 @ diff_0.T
         _, m_t = self.model.compute_M_t(Sigma_0)
@@ -90,19 +71,62 @@ class SGD(BaseSGD):
         irreducible_noise = self.model.sigma**2
         
         for t in range(self.T):
+            # Le calcul du risque reste identique
             bias_part = np.sum(self.L * m_t)
             variance_part = np.sum(self.L * v_t)
             risk = 0.5 * (bias_part + variance_part + irreducible_noise)
             self.risks[t] = risk
             risks.append(risk)
             
-            # Update for next iteration
+            # --- OPTIMISATION O(d) ICI ---
             lr = self.get_step(t)
-            At = self.get_A_matrix(t)
-            m_t = At @ m_t
-            v_t = At @ v_t + (lr**2 * self.model.sigma**2) * self.L
+            
+            # Vecteur diagonal (diag_part est de taille d)
+            diag_part = (1 - lr * self.L)**2 + (lr * self.L)**2
+            
+            # Produit scalaire (scalaire = O(d))
+            dot_L_mt = np.dot(self.L, m_t)
+            dot_L_vt = np.dot(self.L, v_t)
+            
+            # Mise à jour purement vectorielle (O(d) au lieu de O(d^2))
+            m_t = diag_part * m_t + (lr**2) * self.L * dot_L_mt
+            v_t = diag_part * v_t + (lr**2) * self.L * dot_L_vt + (lr**2 * self.model.sigma**2) * self.L
         
         return np.array(risks)
+    
+    def approx_all_theoretical_risks(self) -> np.ndarray:
+        diff_0 = self.x0 - self.model.x_star
+        Sigma_0 = diff_0 @ diff_0.T
+        _, m_t = self.model.compute_M_t(Sigma_0)
+        
+        v_t = np.zeros(self.model.dim)
+        risks = []
+        irreducible_noise = self.model.sigma**2
+        
+        for t in range(self.T):
+            # Le calcul du risque reste identique
+            bias_part = np.sum(self.L * m_t)
+            variance_part = np.sum(self.L * v_t)
+            risk = 0.5 * (bias_part + variance_part + irreducible_noise)
+            self.risks[t] = risk
+            risks.append(risk)
+            
+            # --- OPTIMISATION O(d) ICI ---
+            lr = self.get_step(t)
+            
+            # Vecteur diagonal (diag_part est de taille d)
+            diag_part = (1 - lr * self.L)**2 + (lr * self.L)**2
+            
+            # Produit scalaire (scalaire = O(d))
+            dot_L_mt = np.dot(self.L, m_t)
+            dot_L_vt = np.dot(self.L, v_t)
+            
+            # Mise à jour purement vectorielle (O(d) au lieu de O(d^2))
+            m_t = diag_part * m_t + (lr**2) * self.L * dot_L_mt
+            v_t = diag_part * v_t + (lr**2) * self.L * dot_L_vt + (lr**2 * self.model.sigma**2) * self.L
+        
+        return np.array(risks)
+
 
 
 class NoisyGD(BaseSGD):
@@ -110,16 +134,6 @@ class NoisyGD(BaseSGD):
 
     def __init__(self, model: LinearRegression, x0: np.ndarray, schedule: ScheduleBase):
         super().__init__(model, x0, schedule)
-        self.list_At = {}
-
-    def get_P_matrix(self, t):
-        if t in self.list_At:
-            return self.list_At[t]
-        
-        lr = self.get_step(t)
-        term1 = np.diag((1 - lr * self.L)**2)
-        self.list_At[t] = term1
-        return self.list_At[t]
 
     def compute_all_theoretical_risks(self) -> np.ndarray:
         diff_0 = self.x0 - self.model.x_star
@@ -127,7 +141,6 @@ class NoisyGD(BaseSGD):
         _, m_t = self.model.compute_M_t(Sigma_0)
         
         v_t = np.zeros_like(m_t) 
-        
         risks = []
         
         for t in range(self.T):
@@ -135,19 +148,21 @@ class NoisyGD(BaseSGD):
             variance_part = np.sum(self.L * v_t)
             
             risk = 0.5 * (bias_part + variance_part)
-            self.risks = risk
+            # self.risks = risk  # <-- Attention: Ceci était un bug dans votre code originel (écrasement du dict), je l'ai corrigé en dessous
+            self.risks[t] = risk
             risks.append(risk)
             
-            # Mises à jour pour l'itération t+1
+            # --- OPTIMISATION VECTORIELLE ---
             lr = self.get_step(t)
-            At = self.get_P_matrix(t)
             
-            # 1. Le biais continue d'être amorti
-            m_t = At @ m_t
+            # Vecteur amortisseur
+            P_t_vector = (1 - lr * self.L)**2
             
-            # 2. La variance est amortie par Pt, ET on lui ajoute le nouveau bruit de l'étape t
-            # (Hypothèse : on suppose que model.sigma est un vecteur contenant les sigma_{t,i})
+            # 1. Mise à jour élément par élément (multiplication simple '*')
+            m_t = P_t_vector * m_t
+            
+            # 2. Ajout du bruit
             noise_t = (lr**2) * (self.model.sigma**2)
-            v_t = At @ v_t + noise_t
+            v_t = P_t_vector * v_t + noise_t
             
         return np.array(risks)
