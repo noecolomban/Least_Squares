@@ -111,19 +111,20 @@ class SGD(BaseSGD):
             self.risks[t] = risk
             risks.append(risk)
             
-            # --- OPTIMISATION O(d) ICI ---
             lr = self.get_step(t)
             
-            # Vecteur diagonal (diag_part est de taille d)
+            # Vecteur diagonal de base
             diag_part = (1 - lr * self.L)**2 + (lr * self.L)**2
             
-            # Produit scalaire (scalaire = O(d))
-            dot_L_mt = np.dot(self.L, m_t)
-            dot_L_vt = np.dot(self.L, v_t)
+            # --- L'APPROXIMATION EST ICI ---
+            # Au lieu de faire un produit scalaire global (qui couple toutes les dimensions),
+            # on fait une simple multiplication élément par élément (L^2 * m_t)
+            approx_term_mt = (self.L**2) * m_t
+            approx_term_vt = (self.L**2) * v_t
             
-            # Mise à jour purement vectorielle (O(d) au lieu de O(d^2))
-            m_t = diag_part * m_t + (lr**2) * self.L * dot_L_mt
-            v_t = diag_part * v_t + (lr**2) * self.L * dot_L_vt + (lr**2 * self.model.sigma**2) * self.L
+            # Mise à jour totalement découplée (chaque dimension i vit sa vie de son côté)
+            m_t = diag_part * m_t + (lr**2) * approx_term_mt
+            v_t = diag_part * v_t + (lr**2) * approx_term_vt + (lr**2 * self.model.sigma**2) * self.L
         
         return np.array(risks)
 

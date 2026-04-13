@@ -7,8 +7,18 @@ from src.SGD import SGD, NoisyGD
 class DummySchedule:
     def __init__(self, steps=10, lr=0.01):
         self._steps = steps
+        self._base_lr = lr
         self.schedule = [lr] * steps
         self.name = "Dummy"
+    
+    def get_base_lr(self):
+        """Retourne le base learning rate."""
+        return self._base_lr
+    
+    def set_base_lr(self, new_lr):
+        """Définit le base learning rate et met à jour la schedule."""
+        self._base_lr = new_lr
+        self.schedule = [new_lr] * self._steps
 
 @pytest.fixture
 def model_and_schedule():
