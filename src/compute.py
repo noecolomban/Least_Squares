@@ -1,8 +1,7 @@
-from .SGD import SGD, NoisyGD
+from .SGD import SGD
 import numpy as np 
 from scheduled.schedules.base import ScheduleBase
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import matplotlib.colors as mcolors
 import matplotlib
 from datetime import datetime
@@ -48,108 +47,114 @@ class Computations:
         """Get consistent color for a schedule."""
         return self.schedule_colors.get(schedule, '#7f7f7f')  # default gray
 
+    def _make_sgd(self, x0, schedule):
+        return self.sgd_class(self.model, x0, schedule)
+
+    def _plot_risks(self, risks, title, ylabel, filename_suffix, log_scale=False, legend=True, line_styles=None):
+        if not risks:
+            return
+
+        plt.figure(figsize=(8, 5))
+        for idx, (schedule_name, risk) in enumerate(risks.items()):
+            color = self._get_schedule_color(schedule_name)
+            linestyle = line_styles[idx] if line_styles and idx < len(line_styles) else 'solid'
+            plt.plot(risk, label=schedule_name, color=color, linestyle=linestyle)
+
+        plt.xlabel("Epoch")
+        plt.ylabel(ylabel)
+        plt.title(f"{title} ({self.class_name})")
+        if log_scale:
+            plt.yscale('log')
+        if legend:
+            plt.legend()
+        plt.savefig(f"images/{self.class_name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{filename_suffix}.pdf")
+        plt.show()
+        plt.close()
+
     def compute_risk(self, x0, i_schedule=0):
         """Compute theoretical risk trajectory for a single schedule."""
-        sgd = self.sgd_class(self.model, x0, self.schedules[i_schedule])
-        return sgd.compute_all_theoretical_risks()
+        return self._make_sgd(x0, self.schedules[i_schedule]).compute_all_theoretical_risks()
 
     def compute_mean_empirical_risk(self, x0, n_runs=5, i_schedule=0):
         """Compute the mean empirical risk trajectory for a single schedule."""
-        sgd = self.sgd_class(self.model, x0, self.schedules[i_schedule])
-        risks = []  
-        for i in range(n_runs):
-            risk = sgd.train(show=False)
-            risks.append(risk)
+        risks = [self._make_sgd(x0, self.schedules[i_schedule]).train(show=False) for _ in range(n_runs)]
         return np.mean(np.array(risks), axis=0)
-    
+
     def compute_all_empirical_risks(self, x0, n_runs=5, plot=False, log_scale=False, legend=True):
         """Compute mean empirical risk trajectories for all schedules."""
-        all_risks = {}
-        for i, schedule in enumerate(self.schedules):
-            sgd = self.sgd_class(self.model, x0, schedule)
-            risks = []  
-            for _ in range(n_runs):
-                risk = sgd.train(show=False)
-                risks.append(risk)
-            all_risks[self.schedules_names[i]] = np.mean(np.array(risks), axis=0)
+        all_risks = {
+            name: np.mean(
+                np.array([self._make_sgd(x0, schedule).train(show=False) for _ in range(n_runs)]),
+                axis=0
+            )
+            for name, schedule in zip(self.schedules_names, self.schedules)
+        }
 
         if plot:
-            for schedule_name, risk in all_risks.items():
-                color = self._get_schedule_color(schedule_name)
-                plt.plot(risk, label=schedule_name, color=color)
-            plt.xlabel("Epoch")
-            plt.ylabel("Empirical Risk")
-            plt.title(f"Mean Empirical Risk over Epochs ({self.class_name})")
-            if log_scale:
-                plt.yscale('log')
-            if legend:
-                plt.legend()
-            plt.savefig(f"images/{self.class_name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_empirical_risks.pdf")
-            plt.show()
-        
+            self._plot_risks(
+                all_risks,
+                title="Mean Empirical Risk over Epochs",
+                ylabel="Empirical Risk",
+                filename_suffix="empirical_risks",
+                log_scale=log_scale,
+                legend=legend
+            )
+
         return all_risks
-    
+
     def compute_all_theoretical_risks(self, x0, plot=False, log_scale=False, legend=True):
         """Compute theoretical risk trajectories for all schedules."""
-        all_risks = {}
-        for i, schedule in enumerate(self.schedules):
-            sgd = self.sgd_class(self.model, x0, schedule)
-            risk = sgd.compute_all_theoretical_risks()
-            all_risks[self.schedules_names[i]] = risk
+        all_risks = {
+            name: self._make_sgd(x0, schedule).compute_all_theoretical_risks()
+            for name, schedule in zip(self.schedules_names, self.schedules)
+        }
 
         if plot:
-            for schedule_name, risk in all_risks.items():
-                color = self._get_schedule_color(schedule_name)
-                plt.plot(risk, label=schedule_name, color=color)
-            plt.xlabel("Epoch")
-            plt.ylabel("Theoretical Risk")
-            plt.title(f"Theoretical Risk over Epochs ({self.class_name})")
-            if log_scale:
-                plt.yscale('log')
-            if legend:
-                plt.legend()
-            plt.savefig(f"images/{self.class_name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_theoretical_risks.pdf")
-            plt.show()
-        
+            self._plot_risks(
+                all_risks,
+                title="Theoretical Risk over Epochs",
+                ylabel="Theoretical Risk",
+                filename_suffix="theoretical_risks",
+                log_scale=log_scale,
+                legend=legend
+            )
+
         return all_risks
 
     def approx_all_theoretical_risks(self, x0, plot=False, log_scale=False, legend=True):
-        """Compute theoretical risk trajectories for all schedules."""
-        all_risks = {}
-        for i, schedule in enumerate(self.schedules):
-            sgd = self.sgd_class(self.model, x0, schedule)
-            risk = sgd.approx_all_theoretical_risks()
-            all_risks[self.schedules_names[i]] = risk
+        """Compute approximate theoretical risk trajectories for all schedules."""
+        all_risks = {
+            name: self._make_sgd(x0, schedule).approx_all_theoretical_risks()
+            for name, schedule in zip(self.schedules_names, self.schedules)
+        }
 
         if plot:
-            for schedule_name, risk in all_risks.items():
-                color = self._get_schedule_color(schedule_name)
-                plt.plot(risk, label=schedule_name, color=color)
-            plt.xlabel("Epoch")
-            plt.ylabel("Theoretical Risk")
-            plt.title(f"Theoretical approximate Risk over Epochs ({self.class_name})")
-            if log_scale:
-                plt.yscale('log')
-            if legend:
-                plt.legend()
-            plt.savefig(f"images/{self.class_name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_theoretical_risks.pdf")
-            plt.show()
-        
+            self._plot_risks(
+                all_risks,
+                title="Approximate Theoretical Risk over Epochs",
+                ylabel="Theoretical Risk",
+                filename_suffix="approx_theoretical_risks",
+                log_scale=log_scale,
+                legend=legend
+            )
+
         return all_risks
 
     def compute_approx_vs_theoretical_risks(self, x0, plot=False, log_scale=False, legend=True):
-        """Compute both theoretical and approximate risk trajectories for all schedules."""
+        """Compute both theoretical and approximate risk trajectories for all schedules.
+        approximation is lambda lambda^T = Lambda^2
+        """
+
         theoretical_risks = self.compute_all_theoretical_risks(x0, plot=False, legend=False)
         approx_risks = self.approx_all_theoretical_risks(x0, plot=False, legend=False)
 
         if plot:
-            for schedule_name in theoretical_risks.keys():
+            plt.figure(figsize=(8, 5))
+            for schedule_name in theoretical_risks:
                 color = self._get_schedule_color(schedule_name)
-                plt.plot(theoretical_risks[schedule_name], label=f"{schedule_name} Theoretical", 
-                        color=color, linestyle='solid')
-                plt.plot(approx_risks[schedule_name], label=f"{schedule_name} Approximate", 
-                        color=color, linestyle='dashed')
-            
+                plt.plot(theoretical_risks[schedule_name], label=f"{schedule_name} Theoretical", color=color, linestyle='solid')
+                plt.plot(approx_risks[schedule_name], label=f"{schedule_name} Approximate", color=color, linestyle='dashed')
+
             plt.xlabel("Epoch")
             plt.ylabel("Risk")
             plt.title(f"Theoretical vs Approximate Risk over Epochs ({self.class_name})")
@@ -159,22 +164,22 @@ class Computations:
                 plt.legend()
             plt.savefig(f"images/{self.class_name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_theoretical_vs_approx_risks.pdf")
             plt.show()
-        
+            plt.close()
+
         return theoretical_risks, approx_risks
 
     def compute_all_risks(self, x0, n_runs=5, plot=False, log_scale=False, legend=True):
         """Compute both empirical and theoretical risks for all schedules."""
         empirical_risks = self.compute_all_empirical_risks(x0, n_runs=n_runs, plot=False)
         theoretical_risks = self.compute_all_theoretical_risks(x0, plot=False)
-        
+
         if plot:
-            for schedule_name in empirical_risks.keys():
+            plt.figure(figsize=(8, 5))
+            for schedule_name in empirical_risks:
                 color = self._get_schedule_color(schedule_name)
-                plt.plot(empirical_risks[schedule_name], label=f"{schedule_name} Empirical", 
-                        color=color, linestyle='solid')
-                plt.plot(theoretical_risks[schedule_name], label=f"{schedule_name} Theoretical", 
-                        color=color, linestyle='dashed')
-            
+                plt.plot(empirical_risks[schedule_name], label=f"{schedule_name} Empirical", color=color, linestyle='solid')
+                plt.plot(theoretical_risks[schedule_name], label=f"{schedule_name} Theoretical", color=color, linestyle='dashed')
+
             plt.xlabel("Epoch")
             plt.ylabel("Risk")
             plt.title(f"Empirical vs Theoretical Risk over Epochs ({self.class_name})")
@@ -184,50 +189,119 @@ class Computations:
                 plt.legend()
             plt.savefig(f"images/{self.class_name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_risks.pdf")
             plt.show()
+            plt.close()
+
         return empirical_risks, theoretical_risks
 
+    def _evaluate_eta(self, x0, i_schedule, eta, t_value):
+        schedule = self.schedules[i_schedule]
+        schedule.set_base_lr(eta)
+        return self.compute_risk(x0, i_schedule=i_schedule)[t_value]
 
-
-    
-    def optimize_base_lr(self, x0, i_schedule=0, eta_range=None, plot=True, change_eta=True):
-
+    def optimize_base_lr(self, x0, t_value=None, i_schedule=0, eta_range=None, plot=True, change_eta=True):
         if eta_range is None:
             eta_range = np.logspace(-4, 0.5, 50)
+        eta_range = np.asarray(eta_range)
 
         schedule = self.schedules[i_schedule]
         original_lr = schedule.get_base_lr()
-        final_risks = []
 
-        # Recherche par force brute
-        for eta in eta_range:
-            schedule.set_base_lr(eta)
-            # On calcule la trajectoire théorique et on prend le dernier point (T)
-            risk_trajectory = self.compute_risk(x0, i_schedule=i_schedule)
-            final_risks.append(risk_trajectory[-1])
+        if t_value is None:
+            t_value = schedule._steps - 1
+        assert 0 <= t_value < schedule._steps, "t_value must be a valid schedule index."
 
-         # Identification de l'optimum
-        best_idx = np.argmin(final_risks)
+        try:
+            final_risks = [self._evaluate_eta(x0, i_schedule, eta, t_value) for eta in eta_range]
+        finally:
+            schedule.set_base_lr(original_lr)
+
+        best_idx = int(np.argmin(final_risks))
         best_eta = eta_range[best_idx]
         min_risk = final_risks[best_idx]
 
-        # Restauration du learning rate original
-        if change_eta == False:
-            schedule.set_base_lr(original_lr)
-        else:
-            schedule.set_base_lr(best_eta)       
+        if change_eta:
+            schedule.set_base_lr(best_eta)
 
         if plot:
             plt.figure(figsize=(8, 5))
-            plt.loglog(eta_range, final_risks, marker='.', label='Risk at step $T$')
-            plt.axvline(best_eta, color='red', linestyle='--', 
-                        label=f'Optimum: $\eta \\approx {best_eta:.2e}$')
-            plt.xlabel('Base Learning Rate ($\eta$)')
-            plt.ylabel('Final Risk $\mathbb{E}[f(x_T) - f^*]$')
-            plt.title(f"$\eta$ optimization for schedule={self.schedules_names[i_schedule]}")
+            plt.loglog(eta_range, final_risks, marker='.', label=f'Risk at step $T={t_value}$')
+            plt.axvline(best_eta, color='red', linestyle='--', label=fr'Optimum: $\eta \approx {best_eta:.2e}$')
+            plt.xlabel(r'Base Learning Rate ($\eta$)')
+            plt.ylabel(r'Final Risk $\mathbb{E}[f(x_T) - f^*]$')
+            plt.title(fr'$\eta$ optimization for schedule={self.schedules_names[i_schedule]}')
             plt.legend()
             plt.grid(True, which="both", ls="-", alpha=0.5)
             plt.show()
+            plt.close()
 
         return best_eta, min_risk
-    
-    
+
+    def optimize_all_base_lrs(self, x0, t_value=None, eta_range=None, plot=True, change_eta=True):
+        best_etas = {}
+        min_risks = {}
+        for i, name in enumerate(self.schedules_names):
+            best_eta, min_risk = self.optimize_base_lr(
+                x0,
+                t_value=t_value,
+                i_schedule=i,
+                eta_range=eta_range,
+                plot=plot,
+                change_eta=change_eta
+            )
+            best_etas[name] = best_eta
+            min_risks[name] = min_risk
+        return best_etas, min_risks
+
+    def _plot_series(self, x_values, series, xlabel, ylabel, title, filename_suffix, log_scale=False):
+        plt.figure(figsize=(8, 5))
+        for name, values in series.items():
+            plt.plot(x_values, values, marker='o', label=name)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(f"{title} ({self.class_name})")
+        plt.legend()
+        plt.grid(True, ls='-', alpha=0.5)
+        plt.savefig(f"images/{self.class_name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{filename_suffix}.pdf")
+        if log_scale:
+            plt.yscale('log')
+        plt.show()
+        plt.close()
+
+    def optimize_at_several_ts(self, x0, t_values, eta_range=None, plot=True, change_eta=True, log_scale=False):
+        assert all(0 <= t < self.schedules[0]._steps for t in t_values), "All t values must be valid schedule indices."
+        results = {}
+
+        for t in t_values:
+            best_etas, min_risks = self.optimize_all_base_lrs(
+                x0,
+                t_value=t,
+                eta_range=eta_range,
+                plot=False,
+                change_eta=change_eta
+            )
+            results[t] = {"best_etas": best_etas, "min_risks": min_risks}
+
+        if plot:
+            risk_series = {name: [results[t]["min_risks"][name] for t in t_values] for name in self.schedules_names}
+            eta_series = {name: [results[t]["best_etas"][name] for t in t_values] for name in self.schedules_names}
+
+            self._plot_series(
+                t_values,
+                risk_series,
+                xlabel=r'Time Steps ($t$)',
+                ylabel='Minimum Risk',
+                title=r'Minimum Risk at optimal $\eta$ for different $t$ values',
+                filename_suffix='min_risk_vs_t_values',
+                log_scale=log_scale
+            )
+
+            self._plot_series(
+                t_values,
+                eta_series,
+                xlabel=r'Time Steps ($t$)',
+                ylabel=r'Optimal Base Learning Rate ($\eta$)',
+                title=r'Optimal $\eta$ at different $t$ values',
+                filename_suffix='optimum_eta_vs_t_values'
+            )
+
+        return results
