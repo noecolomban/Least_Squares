@@ -27,10 +27,11 @@ class BaseSGD(ABC):
         Phi, Y = self.model.generate_data(n_samples=self.T)
         loss = []
         for t in range(self.T):
+            loss.append(self.model.compute_risk(x))
+
             phi, y = Phi[t].reshape(-1,1), Y[t]
             g = phi @ (np.dot(phi.T , x) - y)
             x = x - self.get_step(t) * g
-            loss.append(self.model.compute_risk(x))
         self.losses = np.array(loss)
         if show:
             plt.plot(self.losses, label=label)
@@ -62,52 +63,57 @@ class SGD(BaseSGD):
         super().__init__(model, x0, schedule)
 
     def compute_all_theoretical_risks(self) -> np.ndarray:
+        """
+        Calcule le risque théorique à chaque étape (Optimisé O(d))
+        """
         diff_0 = self.x0 - self.model.x_star
-        Sigma_0 = diff_0 @ diff_0.T
-        _, m_t = self.model.compute_M_t(Sigma_0)
+        Sigma_0 = np.outer(diff_0, diff_0)
         
-        v_t = np.zeros(self.model.dim)
+        _, m_t = self.model.compute_M_t(Sigma_0)
+        m_t = m_t.flatten()
+        
+        v_t = np.zeros(self.model.dim) # variance
         risks = []
         irreducible_noise = self.model.sigma**2
+        lambda_vec = self.L  # eigenvalues of H
         
         for t in range(self.T):
-            # Le calcul du risque reste identique
-            bias_part = np.sum(self.L * m_t)
-            variance_part = np.sum(self.L * v_t)
-            risk = 0.5 * (bias_part + variance_part + irreducible_noise)
+            risk = 0.5 * (np.dot(lambda_vec, m_t) + np.dot(lambda_vec, v_t))
+            
             self.risks[t] = risk
             risks.append(risk)
             
-            # --- OPTIMISATION O(d) ICI ---
-            lr = self.get_step(t)
-            
-            # Vecteur diagonal (diag_part est de taille d)
-            diag_part = (1 - lr * self.L)**2 + (lr * self.L)**2
-            
-            # Produit scalaire (scalaire = O(d))
-            dot_L_mt = np.dot(self.L, m_t)
-            dot_L_vt = np.dot(self.L, v_t)
-            
-            # Mise à jour purement vectorielle (O(d) au lieu de O(d^2))
-            m_t = diag_part * m_t + (lr**2) * self.L * dot_L_mt
-            v_t = diag_part * v_t + (lr**2) * self.L * dot_L_vt + (lr**2 * self.model.sigma**2) * self.L
+            if t < self.T - 1:
+                lr = self.get_step(t)
+                diag_part = (1 - lr * lambda_vec)**2 + (lr * lambda_vec)**2
+                
+                dot_m = np.dot(lambda_vec, m_t) 
+                dot_v = np.dot(lambda_vec, v_t)  
+                
+                # update (le bruit est correctement injecté dans la variance ici)
+                m_t = diag_part * m_t + (lr**2) * lambda_vec * dot_m
+                v_t = diag_part * v_t + (lr**2) * lambda_vec * dot_v + (lr**2 * irreducible_noise) * lambda_vec
         
         return np.array(risks)
     
     def approx_all_theoretical_risks(self) -> np.ndarray:
         diff_0 = self.x0 - self.model.x_star
-        Sigma_0 = diff_0 @ diff_0.T
-        _, m_t = self.model.compute_M_t(Sigma_0)
         
+        Sigma_0 = np.outer(diff_0, diff_0)
+        
+        _, m_t = self.model.compute_M_t(Sigma_0)
+        m_t = m_t.flatten()
+
+        irreducible_noise = self.model.sigma**2
+
         v_t = np.zeros(self.model.dim)
         risks = []
-        irreducible_noise = self.model.sigma**2
         
         for t in range(self.T):
             # Le calcul du risque reste identique
             bias_part = np.sum(self.L * m_t)
             variance_part = np.sum(self.L * v_t)
-            risk = 0.5 * (bias_part + variance_part + irreducible_noise)
+            risk = 0.5 * (bias_part + variance_part)
             self.risks[t] = risk
             risks.append(risk)
             
@@ -138,7 +144,7 @@ class NoisyGD(BaseSGD):
 
     def compute_all_theoretical_risks(self) -> np.ndarray:
         diff_0 = self.x0 - self.model.x_star
-        Sigma_0 = diff_0 @ diff_0.T 
+        Sigma_0 = np.outer(diff_0, diff_0)
         _, m_t = self.model.compute_M_t(Sigma_0)
         
         v_t = np.zeros_like(m_t) 
@@ -149,7 +155,6 @@ class NoisyGD(BaseSGD):
             variance_part = np.sum(self.L * v_t)
             
             risk = 0.5 * (bias_part + variance_part)
-            # self.risks = risk  # <-- Attention: Ceci était un bug dans votre code originel (écrasement du dict), je l'ai corrigé en dessous
             self.risks[t] = risk
             risks.append(risk)
             

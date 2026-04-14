@@ -57,15 +57,11 @@ class LinearRegression:
 
     def compute_risk(self, x):
         """
-        Compute R(x) = 1/2 * E[(<x, phi> - y)^2] 
-        Analytically: 1/2 * (x - x*)^T H (x - x*) + 1/2 * sigma^2
+        Compute R(x)-R* = 1/2 * E[(<x, phi> - y)^2] - 1/2 * E[(<x*, phi> - y)^2]
+        Analytically: 1/2 * (x - x*)^T H (x - x*) 
         """
-            
         diff_x = x - self.x_star
-        estimation_error = 0.5 * (diff_x.T @ self.H @ diff_x)
-        noise_floor = 0.5 * (self.sigma**2)
-        
-        total_risk = estimation_error + noise_floor
+        total_risk = 0.5 * (diff_x.T @ self.H @ diff_x)
         return total_risk[0]
     
     def compute_lambda(self):

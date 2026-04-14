@@ -182,7 +182,7 @@ class Computations:
 
             plt.xlabel("Epoch")
             plt.ylabel("Risk")
-            plt.title(f"Empirical vs Theoretical Risk over Epochs ({self.class_name})")
+            plt.title(f"Empirical vs Theoretical (with this model) Risk over Epochs ({self.class_name})")
             if log_scale:
                 plt.yscale('log')
             if legend:
