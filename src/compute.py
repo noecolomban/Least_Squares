@@ -1,4 +1,4 @@
-from .SGD import SGD
+from src.SGD import SGD
 import numpy as np 
 from scheduled.schedules.base import ScheduleBase
 import matplotlib.pyplot as plt
@@ -6,6 +6,7 @@ import matplotlib.colors as mcolors
 import matplotlib
 from datetime import datetime
 import os
+from src.utils import save_optimization_results, read_optimization_results
 
 class Computations:
     """
@@ -157,7 +158,7 @@ class Computations:
 
             plt.xlabel("Epoch")
             plt.ylabel("Risk")
-            plt.title(f"Theoretical vs Approximate Risk over Epochs ({self.class_name})")
+            plt.title(fr"Theoretical vs Approximate ($\lambda\lambda^T \leftarrow \Lambda^2$) Risk over Epochs ({self.class_name})")
             if log_scale:
                 plt.yscale('log')
             if legend:
@@ -236,9 +237,8 @@ class Computations:
 
         return best_eta, min_risk
 
-    def optimize_all_base_lrs(self, x0, t_value=None, eta_range=None, plot=True, change_eta=True):
-        best_etas = {}
-        min_risks = {}
+    def optimize_all_base_lrs(self, x0, t_value=None, eta_range=None, plot=True, change_eta=True, save_results=True):
+        schedule_results = {}
         for i, name in enumerate(self.schedules_names):
             best_eta, min_risk = self.optimize_base_lr(
                 x0,
@@ -248,9 +248,10 @@ class Computations:
                 plot=plot,
                 change_eta=change_eta
             )
-            best_etas[name] = best_eta
-            min_risks[name] = min_risk
-        return best_etas, min_risks
+            schedule_results[name] = {"best_eta": best_eta, "min_risk": min_risk}
+        if save_results:
+            save_optimization_results(schedule_results, additional_info=self.class_name, filename=f"optimize_results_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json")
+        return schedule_results
 
     def _plot_series(self, x_values, series, xlabel, ylabel, title, filename_suffix, log_scale=False):
         plt.figure(figsize=(8, 5))
@@ -267,23 +268,23 @@ class Computations:
         plt.show()
         plt.close()
 
-    def optimize_at_several_ts(self, x0, t_values, eta_range=None, plot=True, change_eta=True, log_scale=False):
+    def optimize_at_several_ts(self, x0, t_values, eta_range=None, plot=True, change_eta=True, log_scale=False, save_results=True):
         assert all(0 <= t < self.schedules[0]._steps for t in t_values), "All t values must be valid schedule indices."
         results = {}
-
         for t in t_values:
-            best_etas, min_risks = self.optimize_all_base_lrs(
+            schedule_results = self.optimize_all_base_lrs(
                 x0,
                 t_value=t,
                 eta_range=eta_range,
                 plot=False,
-                change_eta=change_eta
+                change_eta=change_eta,
+                save_results=False
             )
-            results[t] = {"best_etas": best_etas, "min_risks": min_risks}
+            results[t] = schedule_results
 
         if plot:
-            risk_series = {name: [results[t]["min_risks"][name] for t in t_values] for name in self.schedules_names}
-            eta_series = {name: [results[t]["best_etas"][name] for t in t_values] for name in self.schedules_names}
+            risk_series = {name: [results[t][name]["min_risk"] for t in t_values] for name in self.schedules_names}
+            eta_series = {name: [results[t][name]["best_eta"] for t in t_values] for name in self.schedules_names}
 
             self._plot_series(
                 t_values,
@@ -303,5 +304,26 @@ class Computations:
                 title=r'Optimal $\eta$ at different $t$ values',
                 filename_suffix='optimum_eta_vs_t_values'
             )
-
+        if save_results:
+            save_optimization_results(results, additional_info=self.class_name, filename=f"optimize_results_at_several_ts_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json")
         return results
+
+    def adapt_eta_from_file(self, filename, several_ts=False):
+        results = read_optimization_results(filename)
+        if several_ts:
+            max_t = max(results.keys())
+            state_optimization = results[max_t]
+        else:            
+            state_optimization = results
+        for schedule_name, schedule in zip(self.schedules_names, self.schedules):
+            if schedule_name in state_optimization:
+                best_eta = state_optimization[schedule_name]["best_eta"]
+                schedule.set_base_lr(best_eta)
+                print(f"Updated {schedule_name} with optimal eta: {best_eta:.2e}")
+            else:
+                print(f"No results found for {schedule_name} in the file.")
+
+
+if __name__ == "__main__":
+    results = read_optimization_results(r"saved_files/optimize_results_13-04-2023_15-30-45.json")
+    print(results)
