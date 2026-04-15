@@ -21,7 +21,8 @@ class Computations:
         self.schedules_names = schedules_names if schedules_names is not None else [schedule.name for schedule in schedules]
         self.sgd_class = sgd_class
         self.class_name = sgd_class.name
-        
+        self.last_optimization_file = None
+
         # Ensure images directory exists
         os.makedirs('images', exist_ok=True)
         
@@ -250,7 +251,8 @@ class Computations:
             )
             schedule_results[name] = {"best_eta": best_eta, "min_risk": min_risk}
         if save_results:
-            save_optimization_results(schedule_results, additional_info=self.class_name, filename=f"optimize_results_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json")
+            self.last_optimization_file = f"optimize_results_{self.class_name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+            save_optimization_results(schedule_results, filename=self.last_optimization_file)
         return schedule_results
 
     def _plot_series(self, x_values, series, xlabel, ylabel, title, filename_suffix, log_scale=False):
@@ -268,19 +270,50 @@ class Computations:
         plt.show()
         plt.close()
 
+
     def optimize_at_several_ts(self, x0, t_values, eta_range=None, plot=True, change_eta=True, log_scale=False, save_results=True):
         assert all(0 <= t < self.schedules[0]._steps for t in t_values), "All t values must be valid schedule indices."
-        results = {}
-        for t in t_values:
-            schedule_results = self.optimize_all_base_lrs(
-                x0,
-                t_value=t,
-                eta_range=eta_range,
-                plot=False,
-                change_eta=change_eta,
-                save_results=False
-            )
-            results[t] = schedule_results
+        
+        if eta_range is None:
+            eta_range = np.logspace(-4, 0.5, 50)
+        eta_range = np.asarray(eta_range)
+
+        results = {t: {} for t in t_values}
+
+        # Boucle principale par schedule
+        for i_schedule, name in enumerate(self.schedules_names):
+            schedule = self.schedules[i_schedule]
+            original_lr = schedule.get_base_lr()
+            
+            # Stockera les trajectoires complètes : shape = (len(eta_range), steps)
+            all_trajectories = []
+
+            # 1. On calcule TOUTES les trajectoires une seule fois par valeur de eta
+            for eta in eta_range:
+                schedule.set_base_lr(eta)
+                full_trajectory = self.compute_risk(x0, i_schedule=i_schedule)
+                all_trajectories.append(full_trajectory)
+            
+            all_trajectories = np.array(all_trajectories)
+
+            # 2. Pour chaque t demandé, on cherche le meilleur eta très rapidement
+            for t in t_values:
+                risks_at_t = all_trajectories[:, t]
+                best_idx = int(np.argmin(risks_at_t))
+                
+                results[t][name] = {
+                    "best_eta": eta_range[best_idx],
+                    "min_risk": risks_at_t[best_idx]
+                }
+            
+            # 3. Restauration ou mise à jour du LR
+            if change_eta:
+                # Si on change le eta, on prend généralement celui optimisant le plus grand t (la fin)
+                max_t = max(t_values)
+                schedule.set_base_lr(results[max_t][name]["best_eta"])
+            else:
+                schedule.set_base_lr(original_lr)
+
 
         if plot:
             risk_series = {name: [results[t][name]["min_risk"] for t in t_values] for name in self.schedules_names}
@@ -304,11 +337,15 @@ class Computations:
                 title=r'Optimal $\eta$ at different $t$ values',
                 filename_suffix='optimum_eta_vs_t_values'
             )
+            
         if save_results:
-            save_optimization_results(results, additional_info=self.class_name, filename=f"optimize_results_at_several_ts_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json")
+            save_optimization_results(results, filename=f"optimize_results_at_several_ts_{self.class_name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json")
+            
         return results
 
-    def adapt_eta_from_file(self, filename, several_ts=False):
+    def adapt_eta_from_file(self, filename=None, several_ts=False):
+        if filename is None:
+            filename = self.last_optimization_file
         results = read_optimization_results(filename)
         if several_ts:
             max_t = max(results.keys())
@@ -323,6 +360,46 @@ class Computations:
             else:
                 print(f"No results found for {schedule_name} in the file.")
 
+
+
+
+
+def plot_different_models(x0, models: list[Computations], log_scale=False, savefig=True, title=None):
+    plt.figure(figsize=(8, 5))
+    
+    line_styles = ['solid', 'dashed', 'dotted', 'dashdot']
+    
+    for idx, computations in enumerate(models):
+        theoretical_risks = computations.compute_all_theoretical_risks(x0, plot=False, legend=False)
+        current_linestyle = line_styles[idx % len(line_styles)]
+        
+        for schedule_name, risk in theoretical_risks.items():
+            # Utilisation de la couleur cohérente de la classe
+            color = computations._get_schedule_color(schedule_name)
+            
+            plt.plot(
+                risk, 
+                label=f"{schedule_name} ({computations.class_name})", 
+                color=color,
+                linestyle=current_linestyle
+            )
+            
+    plt.xlabel("Epoch")
+    plt.ylabel("Theoretical Risk")
+    if title is None:
+        title = "Theoretical Risk over Epochs for Different Models and Schedules"
+    plt.title(title)
+    plt.legend()
+    plt.grid(True, ls='-', alpha=0.5)
+    
+    if savefig:
+        os.makedirs('images', exist_ok=True) # Sécurité au cas où
+        plt.savefig(f"images/theoretical_risks_different_models_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pdf")
+        
+    if log_scale:
+        plt.yscale('log')
+    plt.show()
+    plt.close()
 
 if __name__ == "__main__":
     results = read_optimization_results(r"saved_files/optimize_results_13-04-2023_15-30-45.json")

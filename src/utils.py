@@ -5,10 +5,10 @@ import numpy as np
 
 
 
-def save_optimization_results(results, filename=None, additional_info=''):
+def save_optimization_results(results, filename=None):
     """Save optimization results to a file in JSON format."""
     if filename is None:
-        filename = f"optimize_results_{additional_info}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+        filename = f"optimize_results_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
     path = os.path.join("saved_files", "base_lr", filename)
     with open(path, 'w') as file:
         json.dump(clean_keys_json(results), file, indent=4)
