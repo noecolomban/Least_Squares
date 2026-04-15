@@ -340,7 +340,10 @@ class Computations:
             
         if save_results:
             save_optimization_results(results, filename=f"optimize_results_at_several_ts_{self.class_name}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json")
+<<<<<<< HEAD
             
+=======
+>>>>>>> 1d2ced5510d6c25bde5c309f6dfafb5354e2e2fd
         return results
 
     def adapt_eta_from_file(self, filename=None, several_ts=False):
