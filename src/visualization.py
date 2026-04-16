@@ -33,13 +33,16 @@ class Visualization:
         """Generate a filename for saving plots based on the given text."""
         return os.path.join("images", f"{text}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pdf")
 
-    def plot_for_every_schedule(self, values: dict, title="Risk Trajectories for Different Schedules", legend=True, savefig=False, logscale=False, filename=None):
+    def plot_for_every_schedule(self, values: dict, title="Risk Trajectories for Different Schedules", legend=True, savefig=False, logscale=False, filename=None, xlabel="Time Step", ylabel="Risk", X=None):
         """Plot the given values for every schedule with distinct colors."""
         plt.figure(figsize=(10, 6))
         for name in self.schedules_names:
-            plt.plot(values[name], label=name, color=self.colors[name])
-        plt.xlabel("Time Step")
-        plt.ylabel("Risk")
+            if X is not None:
+                plt.plot(X, values[name], label=name, color=self.colors[name])
+            else:
+                plt.plot(values[name], label=name, color=self.colors[name])
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
         plt.title(title)
         if legend: 
             plt.legend()
@@ -52,14 +55,14 @@ class Visualization:
             plt.savefig(self._make_filename(filename))
         plt.show()
 
-    def plot_comparison(self, theoretical_values, empirical_values, title="Theoretical vs Empirical Risk", legend=True, savefig=False, logscale=False, filename=None):
+    def plot_comparison(self, theoretical_values, empirical_values, title="Theoretical vs Empirical Risk", legend=True, savefig=False, logscale=False, filename=None, xlabel="Time Step", ylabel="Risk"):
         """Plot theoretical and empirical values for each schedule."""
         plt.figure(figsize=(10, 6))
         for name in self.schedules_names:
             plt.plot(theoretical_values[name], label=f"{name} - Theoretical", color=self.colors[name], linestyle='--')
             plt.plot(empirical_values[name], label=f"{name} - Empirical", color=self.colors[name])
-        plt.xlabel("Time Step")
-        plt.ylabel("Risk")
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
         plt.title(title)
         if legend: 
             plt.legend()
@@ -128,7 +131,7 @@ class Visualization:
         plt.show()
 
 
-    def plot_sgd_classes_comparison(self, risks_class1, risks_class2, label_class1="True SGD", label_class2="Noisy GD", title="Comparison: SGD vs Noisy GD", legend=True, savefig=False, logscale=False, filename=None):
+    def plot_sgd_classes_comparison(self, risks_class1, risks_class2, label_class1="True SGD", label_class2="Noisy GD", title="Comparison: SGD vs Noisy GD", legend=True, savefig=False, logscale=False, xlabel="Time Step", ylabel="Risk",X=None , filename=None):
         """
         risks_class1 et risks_class2 doivent être des dictionnaires : {nom_schedule: tableau_des_risques}
         """
@@ -137,13 +140,15 @@ class Visualization:
         for name in self.schedules_names:
             if name in risks_class1 and name in risks_class2:
                 # Ligne continue pour la première classe (ex: SGD classique)
-                plt.plot(risks_class1[name], label=f"{name} - {label_class1}", color=self.colors[name], linestyle='-')
+                if X is not None:
+                    plt.plot(X, risks_class1[name], label=f"{name} - {label_class1}", color=self.colors[name], linestyle='-')
+                    plt.plot(X, risks_class2[name], label=f"{name} - {label_class2}", color=self.colors[name], linestyle='--')
+                else:
+                    plt.plot(risks_class1[name], label=f"{name} - {label_class1}", color=self.colors[name], linestyle='-')
+                    plt.plot(risks_class2[name], label=f"{name} - {label_class2}", color=self.colors[name], linestyle='--')
                 
-                # Ligne pointillée pour la seconde classe (ex: NoisyGD)
-                plt.plot(risks_class2[name], label=f"{name} - {label_class2}", color=self.colors[name], linestyle='--')
-                
-        plt.xlabel("Time Step")
-        plt.ylabel("Risk")
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
         plt.title(title)
         
         if legend: 

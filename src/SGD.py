@@ -168,7 +168,7 @@ class NoisyGD(BaseSGD):
             m_t = P_t_vector * m_t
             
             # 2. Ajout du bruit
-            noise_t = (lr**2) * (self.model.sigma**2)
+            noise_t = (lr**2) * (self.model.sigma**2) * self.L
             v_t = P_t_vector * v_t + noise_t
             
         return np.array(risks)
