@@ -1,4 +1,4 @@
-from .risk_computations import Risk
+from .risk_computations import RiskComputations
 from .SGD import SGD
 import matplotlib.pyplot as plt
 import matplotlib
@@ -73,25 +73,58 @@ class Visualization:
         plt.show()
 
 
-    def plot_optimization_at_several_ts(self, results, legend=True, savefig=False, logscale=False, filename=None):
+    import matplotlib.pyplot as plt
+
+
+    def plot_optimization_at_several_ts(self, results, legend=True, plot_etas=False, savefig=False, logscale=False, filename=None):
         """Plot optimization results at several time steps."""
-        plt.figure(figsize=(10, 6))
+        # Création des figures : 2 colonnes si plot_etas est True, sinon 1 seule
+        if plot_etas:
+            fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+            ax_risk = axes[0]
+            ax_eta = axes[1]
+        else:
+            fig, ax_risk = plt.subplots(1, 1, figsize=(10, 6))
+            ax_eta = None
+
         for name in self.schedules_names:
             t_values = list(results.keys())
             risks = [results[t][name]["min_risk"] for t in t_values]
-            plt.plot(t_values, risks, label=name, color=self.colors[name], marker='o')
-        plt.xlabel("Time Step")
-        plt.ylabel("Optimized Risk")
-        plt.title("Optimized Risk at Several Time Steps")
+            etas = [results[t][name]["best_eta"] for t in t_values]
+            
+            # Tracé du risque sur le premier graphique
+            ax_risk.plot(t_values, risks, label=name, color=self.colors[name], marker='o')
+            
+            # Tracé des etas sur le deuxième graphique si demandé
+            if plot_etas:
+                ax_eta.plot(t_values, etas, label=f"{name}", color=self.colors[name], linestyle='--', marker='x')
+
+        ax_risk.set_xlabel("Time Step")
+        ax_risk.set_ylabel("Optimized Risk")
+        ax_risk.set_title("Optimized Risk at Several Time Steps")
+        ax_risk.grid(True)
+        if logscale:
+            ax_risk.set_yscale('log')
         if legend:
-            plt.legend()
+            ax_risk.legend()
+
+        if plot_etas:
+            ax_eta.set_xlabel("Time Step")
+            ax_eta.set_ylabel("Best Eta")
+            ax_eta.set_title("Best Eta at Several Time Steps")
+            ax_eta.grid(True)
+            if logscale:
+                ax_eta.set_yscale('log') # Applique aussi le logscale si pertinent
+            if legend:
+                ax_eta.legend()
+
+        plt.tight_layout()
+
         if savefig:
             if filename is None:
                 filename = "Optimized_Risk_at_Several_Time_Steps"
             plt.savefig(self._make_filename(filename))
-        if logscale:
-            plt.yscale('log')
-        plt.grid(True)
+            
         plt.show()
 
 

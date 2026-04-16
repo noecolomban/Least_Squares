@@ -4,7 +4,6 @@ import os
 import numpy as np
 
 
-
 def save_optimization_results(results, filename=None):
     """Save optimization results to a file in JSON format."""
     if filename is None:
@@ -60,6 +59,50 @@ def clean_keys_json(obj):
     else:
         return obj
 
+
+def save_risk_results(results: np.ndarray, filename=None):
+    """Save risk computation results to a file in JSON format."""
+    if filename is None:
+        filename = f"risk_results_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+    
+    # Ensure the directory exists
+    os.makedirs(os.path.join("saved_files", "risks"), exist_ok=True)
+    path = os.path.join("saved_files", "risks", filename)
+    
+    # Convert numpy arrays to lists for JSON serialization
+    def convert_numpy(obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, dict):
+            return {k: convert_numpy(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [convert_numpy(i) for i in obj]
+        return obj
+
+    with open(path, 'w') as file:
+        json.dump(convert_numpy(results), file, indent=4)
+    print(f"Risk results saved to {path}")
+    return path
+
+
+def read_risk_results(filename) -> np.ndarray:
+    """Read risk results from a file and return a structured dictionary of numpy arrays."""
+    path = os.path.join("saved_files", "risks", filename)
+    
+    with open(path, 'r') as file:
+        data = json.load(file)
+        
+    # Convert lists back to numpy arrays
+    def convert_to_numpy(obj):
+        if isinstance(obj, list):
+            return np.array(obj)
+        if isinstance(obj, dict):
+            return {k: convert_to_numpy(v) for k, v in obj.items()}
+        return obj
+
+    result = convert_to_numpy(data)
+    print(f"Risk results loaded from {path}")
+    return result
 
 
 

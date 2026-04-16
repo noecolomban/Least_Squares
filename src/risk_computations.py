@@ -5,7 +5,7 @@ from datetime import datetime
 from scheduled.schedules.base import ScheduleBase
 from src.utils import save_optimization_results, read_optimization_results
 
-class Risk:
+class RiskComputations:
     def __init__(self, model: LinearRegression, x0: np.ndarray, schedules: list[ScheduleBase], schedules_names: list[str] | None = None, sgd_class=SGD):
         self.model = model
         self.x0 = x0
@@ -107,6 +107,7 @@ class Risk:
     
     def _get_file_name(self, text):
         return f"optimize_results_{self.sgd_class.name}_{text}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.json"
+
 
     def optimize_all_base_lrs(self, t_value=None, eta_range=None, change_eta=True, save_results=True):
         schedule_results = {}
