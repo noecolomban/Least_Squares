@@ -113,6 +113,13 @@ class LinearRegression:
         
         return Mt, mt
     
+    @property
+    def delta0(self):
+        """Compute delta0: x0 - x* in the eigenvector space"""
+        if self.Q is None:
+            self.compute_lambda()
+        return self.Q.T @ (self.x0 - self.x_star)
+
 
 class PowerLawRegression(LinearRegression):
     def __init__(self, dim=5, sigma=0.1, n_samples=1000, exponent=0.5):
@@ -129,3 +136,10 @@ class PowerLawRegression(LinearRegression):
         Lambda_matrix = np.diag(Lambda_vals)
         H = Q @ Lambda_matrix @ Q.T
         return H
+    
+
+def compute_power_x0(dim, x_star, Q, beta=1):
+    """Compute an initial point x0 such that delta0 = 1/i**beta in the eigenvector space"""
+    delta0 = np.array([1.0 / (i**beta) for i in range(1, dim + 1)])
+    x0 = x_star + Q @ delta0
+    return x0

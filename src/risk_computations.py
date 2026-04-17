@@ -99,6 +99,8 @@ class RiskComputations:
             schedule.set_base_lr(original_lr)
 
         best_idx = int(np.argmin(final_risks))
+        if best_idx == 0 or best_idx == len(eta_range) - 1:
+            print(f"WARNING: Optimal eta for schedule '{name}' is at the boundary of the search range. Consider expanding the eta_range for better optimization.")
         best_eta = eta_range[best_idx]
         min_risk = final_risks[best_idx]
 
@@ -205,8 +207,8 @@ def diff_to_exponents(exponents, dim=10, sigma= 0.1, schedules1=None, schedules2
         risks_computations_sgd = RiskComputations(model, x0, schedules=schedules1, schedules_names=schedules_names, sgd_class=SGD)
         risks_computations_noisy_gd = RiskComputations(model, x0, schedules=schedules2, schedules_names=schedules_names, sgd_class=NoisyGD)
 
-        risks_computations_sgd.optimize_all_base_lrs(change_eta=True, eta_range=eta_range)
-        risks_computations_noisy_gd.optimize_all_base_lrs(change_eta=True, eta_range=eta_range)
+        risks_computations_sgd.optimize_all_base_lrs(change_eta=True, eta_range=eta_range, save_results=False)
+        risks_computations_noisy_gd.optimize_all_base_lrs(change_eta=True, eta_range=eta_range, save_results=False)
 
         risk_sgd = risks_computations_sgd.compute_all_theoretical_risks()
         risk_noisy = risks_computations_noisy_gd.compute_all_theoretical_risks()
@@ -222,11 +224,14 @@ def diff_sgd_vs_approx(exponents, dim=10, sigma= 0.1, schedules1=None, schedules
     for exponent in exponents:
         model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
         risks_computations_sgd = RiskComputations(model, x0, schedules=schedules1, schedules_names=schedules_names, sgd_class=SGD)
+        risks_computations_approx = RiskComputations(model, x0, schedules=schedules2, schedules_names=schedules_names, sgd_class=SGD)
 
-        risks_computations_sgd.optimize_all_base_lrs(change_eta=True, eta_range=eta_range)
+
+        risks_computations_sgd.optimize_all_base_lrs(change_eta=True, eta_range=eta_range, save_results=False)
+        risks_computations_approx.optimize_all_base_lrs(change_eta=True, eta_range=eta_range, save_results=False)
 
         risk_sgd = risks_computations_sgd.compute_all_theoretical_risks()
-        risk_approx = risks_computations_sgd.approx_all_theoretical_risks()
+        risk_approx = risks_computations_approx.approx_all_theoretical_risks()
 
         for name in schedules_names:
             diff_risks_values[name].append(risk_sgd[name][-1] - risk_approx[name][-1])

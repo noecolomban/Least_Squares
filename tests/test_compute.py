@@ -3,6 +3,7 @@ import numpy as np
 from src.least_squares import LinearRegression
 from src.SGD import SGD, NoisyGD
 from src.risk_computations import RiskComputations
+from src import risk_computations as rc
 from scheduled import WSDSchedule, ConstantSchedule
 from tests.test_sgd import DummySchedule  # On réutilise notre mock
 
@@ -196,3 +197,66 @@ def test_optimize_at_several_ts(risk_setup_with_seed):
         assert "min_risk" in results[t]["Sched 1"]
         assert results[t]["Sched 1"]["best_eta"] in eta_range
         assert results[t]["Sched 1"]["min_risk"] >= 0
+
+
+def test_diff_to_exponents_uses_save_results_false(monkeypatch):
+    class FakeRiskComputations:
+        optimize_calls = []
+
+        def __init__(self, model, x0, schedules, schedules_names, sgd_class):
+            self.sgd_class = sgd_class
+            self.schedules_names = schedules_names
+
+        def optimize_all_base_lrs(self, change_eta=True, eta_range=None, save_results=True):
+            FakeRiskComputations.optimize_calls.append(save_results)
+
+        def compute_all_theoretical_risks(self):
+            final = 10.0 if self.sgd_class is SGD else 7.0
+            return {name: np.array([0.0, final]) for name in self.schedules_names}
+
+    monkeypatch.setattr(rc, "RiskComputations", FakeRiskComputations)
+
+    result = rc.diff_to_exponents(
+        exponents=[0.5, 1.0],
+        schedules1=[object()],
+        schedules2=[object()],
+        schedules_names=["sched"],
+        eta_range=np.array([1e-3, 1e-2]),
+        x0=np.zeros(1),
+    )
+
+    assert result == {"sched": [3.0, 3.0]}
+    assert FakeRiskComputations.optimize_calls == [False, False, False, False]
+
+
+def test_diff_sgd_vs_approx_uses_second_instance_for_approx(monkeypatch):
+    class FakeRiskComputations:
+        optimize_calls = []
+
+        def __init__(self, model, x0, schedules, schedules_names, sgd_class):
+            self.schedules = schedules
+            self.schedules_names = schedules_names
+
+        def optimize_all_base_lrs(self, change_eta=True, eta_range=None, save_results=True):
+            FakeRiskComputations.optimize_calls.append((self.schedules, save_results))
+
+        def compute_all_theoretical_risks(self):
+            return {name: np.array([0.0, 10.0]) for name in self.schedules_names}
+
+        def approx_all_theoretical_risks(self):
+            approx_final = 2.0 if self.schedules == ["approx"] else 99.0
+            return {name: np.array([0.0, approx_final]) for name in self.schedules_names}
+
+    monkeypatch.setattr(rc, "RiskComputations", FakeRiskComputations)
+
+    result = rc.diff_sgd_vs_approx(
+        exponents=[0.5],
+        schedules1=["sgd"],
+        schedules2=["approx"],
+        schedules_names=["sched"],
+        eta_range=np.array([1e-3, 1e-2]),
+        x0=np.zeros(1),
+    )
+
+    assert result == {"sched": [8.0]}
+    assert FakeRiskComputations.optimize_calls == [(["sgd"], False), (["approx"], False)]
