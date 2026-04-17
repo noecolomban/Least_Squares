@@ -100,7 +100,7 @@ class RiskComputations:
 
         best_idx = int(np.argmin(final_risks))
         if best_idx == 0 or best_idx == len(eta_range) - 1:
-            print(f"WARNING: Optimal eta for schedule '{name}' is at the boundary of the search range. Consider expanding the eta_range for better optimization.")
+            print(f"WARNING: Optimal eta={eta_range[best_idx]} for schedule '{name}' is at the boundary of the search range. Consider expanding the eta_range for better optimization.")
         best_eta = eta_range[best_idx]
         min_risk = final_risks[best_idx]
 
