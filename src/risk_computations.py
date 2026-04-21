@@ -144,7 +144,7 @@ class RiskComputations:
             schedule = self.schedules[name]
             original_lr = schedule.get_base_lr()
             
-            # Stockera les trajectoires complètes : shape = (len(eta_range), steps)
+            # Will store the full trajectories: shape = (len(eta_range), steps)
             all_trajectories = []
 
             # 1. On calcule TOUTES les trajectoires une seule fois par valeur de eta
@@ -155,7 +155,7 @@ class RiskComputations:
             
             all_trajectories = np.array(all_trajectories)
 
-            # 2. Pour chaque t demandé, on cherche le meilleur eta très rapidement
+            # 2. For each requested t, find the best eta quickly
             for t in t_values:
                 risks_at_t = all_trajectories[:, t]
                 best_idx = int(np.argmin(risks_at_t))
@@ -165,9 +165,9 @@ class RiskComputations:
                     "min_risk": risks_at_t[best_idx]
                 }
             
-            # 3. Restauration ou mise à jour du LR
+            # 3. Restore or update the LR
             if change_eta:
-                # Si on change le eta, on prend généralement celui optimisant le plus grand t (la fin)
+                # If changing eta, we generally take the one optimizing the largest t (the end)
                 max_t = max(t_values)
                 schedule.set_base_lr(results[max_t][name]["best_eta"])
             else:
@@ -198,7 +198,7 @@ class RiskComputations:
                 print(f"No results found for {schedule_name} in the file.")
 
 
-def diff_to_exponents(exponents, dim=10, sigma= 0.1, schedules1=None, schedules2=None, schedules_names=None, eta_range=np.logspace(-4, 0, 20), x0=np.zeros(10)):
+def diff_to_exponents(exponents, relative=False, dim=10, sigma= 0.1, schedules1=None, schedules2=None, schedules_names=None, eta_range=np.logspace(-4, 0, 20), x0=np.zeros(10)):
     if schedules_names is None:
         schedules_names = ["wsd", "constant", "linear"]
     diff_risks_values = {name: [] for name in schedules_names}
@@ -214,10 +214,16 @@ def diff_to_exponents(exponents, dim=10, sigma= 0.1, schedules1=None, schedules2
         risk_noisy = risks_computations_noisy_gd.compute_all_theoretical_risks()
 
         for name in schedules_names:
-            diff_risks_values[name].append(risk_sgd[name][-1] - risk_noisy[name][-1])
+            if relative:
+                diff = risk_sgd[name][-1] - risk_noisy[name][-1]
+                relative_diff = diff / abs(risk_sgd[name][-1]) if risk_sgd[name][-1] != 0 else 0.0
+                diff_risks_values[name].append(relative_diff)
+            else:
+                diff_risks_values[name].append(risk_sgd[name][-1] - risk_noisy[name][-1])
     return diff_risks_values
 
-def diff_sgd_vs_approx(exponents, dim=10, sigma= 0.1, schedules1=None, schedules2=None, schedules_names=None, eta_range=np.logspace(-4, 0, 20),x0=np.zeros(10)):
+
+def diff_sgd_vs_approx(exponents, relative=False, dim=10, sigma= 0.1, schedules1=None, schedules2=None, schedules_names=None, eta_range=np.logspace(-4, 0, 20),x0=np.zeros(10)):
     if schedules_names is None:
         schedules_names = ["wsd", "constant", "linear"]
     diff_risks_values = {name: [] for name in schedules_names}
@@ -234,6 +240,11 @@ def diff_sgd_vs_approx(exponents, dim=10, sigma= 0.1, schedules1=None, schedules
         risk_approx = risks_computations_approx.approx_all_theoretical_risks()
 
         for name in schedules_names:
-            diff_risks_values[name].append(risk_sgd[name][-1] - risk_approx[name][-1])
+            if relative:
+                diff = risk_sgd[name][-1] - risk_approx[name][-1]
+                relative_diff = diff / abs(risk_sgd[name][-1]) if risk_sgd[name][-1] != 0 else 0.0
+                diff_risks_values[name].append(relative_diff)
+            else:
+                diff_risks_values[name].append(risk_sgd[name][-1] - risk_approx[name][-1])
     return diff_risks_values
     

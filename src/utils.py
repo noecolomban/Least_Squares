@@ -16,18 +16,18 @@ def save_optimization_results(results, filename=None):
 
 
 def restore_integer_keys(obj):
-    """Parcourt le dictionnaire et convertit les clés numériques (str) en int."""
+    """Traverse the dictionary and convert numeric string keys to int."""
     if isinstance(obj, dict):
         nouveau_dict = {}
         for k, v in obj.items():
-            # Tente de convertir la clé en entier
+            # Try to convert the key to an integer
             try:
                 nouvelle_cle = int(k)
             except ValueError:
-                # Si ça plante (ex: la clé est un mot comme "resultats"), on garde le texte
+                # If it fails (e.g., the key is a word like "results"), keep as text
                 nouvelle_cle = k
             
-            # On applique la fonction récursivement pour les dictionnaires imbriqués
+            # Recursively apply the function for nested dictionaries
             nouveau_dict[nouvelle_cle] = restore_integer_keys(v)
         return nouveau_dict
     elif isinstance(obj, list):
@@ -41,10 +41,10 @@ def read_optimization_results(filename):
     path = os.path.join("saved_files", "base_lr", filename)
     
     with open(path, 'r') as file:
-        # 1. On charge le JSON (les clés numériques sont des chaînes de caractères "1", "2"...)
+        # 1. Load the JSON (numeric keys are strings "1", "2"...)
         read_file = json.load(file)
         
-        # 2. On restaure les clés en entiers (1, 2...) là où c'est approprié
+        # 2. Restore keys as integers (1, 2...) where appropriate
         result = restore_integer_keys(read_file)
         print(f"Optimization results loaded from {path}")
         

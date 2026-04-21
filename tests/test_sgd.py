@@ -12,11 +12,11 @@ class DummySchedule:
         self.name = "Dummy"
     
     def get_base_lr(self):
-        """Retourne le base learning rate."""
+        """Return the base learning rate."""
         return self._base_lr
     
     def set_base_lr(self, new_lr):
-        """Définit le base learning rate et met à jour la schedule."""
+        """Set the base learning rate and update the schedule."""
         self._base_lr = new_lr
         self.schedule = [new_lr] * self._steps
 
@@ -24,7 +24,7 @@ class DummySchedule:
 def model_and_schedule():
     model = LinearRegression(dim=3, sigma=0.1, n_samples=50)
     schedule = DummySchedule(steps=10, lr=0.01)
-    # x0 aléatoire
+    # Random x0
     x0 = np.random.randn(3, 1)
     return model, schedule, x0
 
@@ -36,7 +36,7 @@ def test_true_sgd_theoretical_risk(model_and_schedule):
     
     assert isinstance(risks, np.ndarray)
     assert len(risks) == schedule._steps
-    # Le risque doit être positif
+    # The risk must be positive
     assert np.all(risks >= 0)
 
 def test_noisy_gd_theoretical_risk(model_and_schedule):

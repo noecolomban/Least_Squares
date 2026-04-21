@@ -66,69 +66,15 @@ class ZTransform_constant:
         return self._z_transform_results[i]
 
 
-    def compute_approx_risk_until_dim_i(self, i):
-        """Compute the approximate risk at step T using the Z-transform result for dimension i."""
-        
-        m_0_to_i = copy.deepcopy(self.m0)
-        m_0_to_i[i+1:] = 0
-
-        irreducible_noise = self.model.sigma**2
-
-        v_t = np.zeros(self.model.dim)
-        risks = []
-        
-        for t in range(self.T):
-            # Le calcul du risque reste identique
-            bias_part = np.sum(self.model.Lambda_vals * m_0_to_i)
-            variance_part = np.sum(self.model.Lambda_vals[:i+1] * v_t[:i+1])
-            risk = 0.5 * (bias_part + variance_part)
-            risks.append(risk)
-            
-            lr = self.schedule.get_base_lr()
-            
-            # Vecteur diagonal de base
-            diag_part = (1 - lr * self.model.Lambda_vals)**2 + (lr * self.model.Lambda_vals)**2
-            
-
-            approx_term_mt = (self.model.Lambda_vals**2) * m_0_to_i
-            approx_term_vt = (self.model.Lambda_vals**2) * v_t
-            
-            # Mise à jour totalement découplée (chaque dimension i vit sa vie de son côté)
-            m_0_to_i = diag_part * m_0_to_i + (lr**2) * approx_term_mt
-            v_t = diag_part * v_t + (lr**2) * approx_term_vt + (lr**2 * self.model.sigma**2) * self.model.Lambda_vals
-        
-        return np.array(risks)
-
-    def compute_all_approx_risk(self, i_range=None):
-        """Compute the approximate risk at step T using the Z-transform results for i in i_range."""
-        if i_range is None:
-            i_range = range(self.model.dim)
-        risks = {}
-        for i in i_range:
-            risk_i = self.compute_approx_risk_until_dim_i(i)
-            risks[i] = risk_i[-1]  # On prend le risque à la dernière itération (T-1)
-        return risks
-
-
-    def compute_all_z_transform_results(self, i_range=None):
-        """Compute the Z-transform results for all steps up to T-1."""
-        if i_range is None:
-            i_range = range(self.model.dim)
-        self.compute_z_transform_result(max(i_range))
-        return self._z_transform_results
     
 
 
-    def compute_all_approx_vs_z_transform(self, i_range=None):
+    def compute_all_approx_vs_z_transform(self):
         """Compute the Z-transform results and the approximate risks for all steps up to T-1.
         Affine interpolation for approx"""
 
-        if i_range is None:
-            i_range = range(self.model.dim)
-        z_results = self.compute_all_z_transform_results(i_range)
-        approx_risks = self.compute_all_approx_risk(i_range)
+        z_results_values = {"constant" : self.compute_z_transform_result()*np.ones(self.T)}
+        approx_risks = self.computations.approx_all_theoretical_risks()
         
-        new_approx = np.interp(np.arange(max(i_range)+1), list(approx_risks.keys()), list(approx_risks.values()))
-
-        return z_results, new_approx
+        return z_results_values, approx_risks
         

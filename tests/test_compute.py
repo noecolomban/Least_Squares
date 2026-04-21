@@ -5,7 +5,7 @@ from src.SGD import SGD, NoisyGD
 from src.risk_computations import RiskComputations
 from src import risk_computations as rc
 from scheduled import WSDSchedule, ConstantSchedule
-from tests.test_sgd import DummySchedule  # On réutilise notre mock
+from tests.test_sgd import DummySchedule  # Reuse our mock
 
 @pytest.fixture
 def risk_setup():
@@ -17,7 +17,7 @@ def risk_setup():
 
 @pytest.fixture
 def risk_setup_with_seed():
-    """Fixture avec seed pour résultats reproductibles."""
+    """Fixture with seed for reproducible results."""
     np.random.seed(42)
     model = LinearRegression(dim=3)
     schedules = [DummySchedule(steps=10), DummySchedule(steps=10)]
@@ -46,7 +46,7 @@ def test_risk_default_schedules_names(risk_setup):
     model, schedules, _, x0 = risk_setup
     risk = RiskComputations(model, x0, schedules, sgd_class=SGD)
     
-    # Si schedules_names n'est pas fourni, doit utiliser le nom des schedules
+    # If schedules_names is not provided, must use the schedule names
     assert len(risk.schedules_names) == len(schedules)
     for name in risk.schedules_names:
         assert isinstance(name, str)
@@ -144,11 +144,11 @@ def test_optimize_base_lr(risk_setup_with_seed):
     eta_range = np.array([0.001, 0.01, 0.1])
     best_eta, min_risk = risk.optimize_base_lr(name="Sched 1", eta_range=eta_range, change_eta=False)
     
-    # Le meilleur eta doit être dans la plage fournie
+    # The best eta must be within the provided range
     assert best_eta in eta_range
-    # Le risque final doit être positif
+    # The final risk must be positive
     assert min_risk >= 0
-    # Le learning rate de la schedule ne doit pas avoir changé après l'optimisation
+    # The schedule learning rate must not have changed after optimization
     # (puisque change_eta=False)
     original_lr = schedules[0].get_base_lr()
     assert np.allclose(risk.schedules["Sched 1"].get_base_lr(), original_lr)
@@ -161,7 +161,7 @@ def test_optimize_base_lr_with_change(risk_setup_with_seed):
     original_lr = schedules[0].get_base_lr()
     best_eta, min_risk = risk.optimize_base_lr(name="Sched 1", eta_range=eta_range, change_eta=True)
     
-    # Après change_eta=True, le learning rate doit avoir été mis à jour au meilleur
+    # After change_eta=True, the learning rate must have been updated to the best
     new_lr = risk.schedules["Sched 1"].get_base_lr()
     assert np.allclose(new_lr, best_eta)
 

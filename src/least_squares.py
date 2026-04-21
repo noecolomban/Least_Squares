@@ -66,7 +66,7 @@ class LinearRegression:
     
     def compute_lambda(self):
         Lambda_vals, Q = np.linalg.eigh(self.H)
-        # Tri par ordre décroissant
+        # Sort in descending order
         idx = np.argsort(Lambda_vals)[::-1]
         Lambda_vals = Lambda_vals[idx]
         Q = Q[:, idx]

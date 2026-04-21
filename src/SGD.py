@@ -90,7 +90,7 @@ class SGD(BaseSGD):
                 dot_m = np.dot(lambda_vec, m_t) 
                 dot_v = np.dot(lambda_vec, v_t)  
                 
-                # update (le bruit est correctement injecté dans la variance ici)
+                # update (noise is correctly injected into the variance here)
                 m_t = diag_part * m_t + (lr**2) * lambda_vec * dot_m
                 v_t = diag_part * v_t + (lr**2) * lambda_vec * dot_v + (lr**2 * irreducible_noise) * lambda_vec
         
@@ -124,11 +124,11 @@ class SGD(BaseSGD):
             
             # --- L'APPROXIMATION EST ICI ---
             # Au lieu de faire un produit scalaire global (qui couple toutes les dimensions),
-            # on fait une simple multiplication élément par élément (L^2 * m_t)
+            # do a simple element-wise multiplication (L^2 * m_t)
             approx_term_mt = (self.L**2) * m_t
             approx_term_vt = (self.L**2) * v_t
             
-            # Mise à jour totalement découplée (chaque dimension i vit sa vie de son côté)
+            # Fully decoupled update (each dimension i evolves independently)
             m_t = diag_part * m_t + (lr**2) * approx_term_mt
             v_t = diag_part * v_t + (lr**2) * approx_term_vt + (lr**2 * self.model.sigma**2) * self.L
         
@@ -164,7 +164,7 @@ class NoisyGD(BaseSGD):
             # Vecteur amortisseur
             P_t_vector = (1 - lr * self.L)**2
             
-            # 1. Mise à jour élément par élément (multiplication simple '*')
+            # 1. Element-wise update (simple '*' multiplication)
             m_t = P_t_vector * m_t
             
             # 2. Ajout du bruit

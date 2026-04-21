@@ -7,7 +7,7 @@ from src.new_schedules.polynomial import PolynomialSchedule
 
 @pytest.fixture
 def visualization_setup():
-    """Fixture pour instancier une Visualization standard."""
+    """Fixture to instantiate a standard Visualization."""
     schedules = [
         WSDSchedule(steps=10, base_lr=0.1, cooldown_len=0.5),
         ConstantSchedule(steps=10, base_lr=0.05),
@@ -17,7 +17,7 @@ def visualization_setup():
     return Visualization(schedules, schedules_names)
 
 def test_visualization_initialization(visualization_setup):
-    """Test l'initialisation correcte de Visualization."""
+    """Test correct initialization of Visualization."""
     vis = visualization_setup
     
     assert len(vis.schedules) == 3
@@ -27,14 +27,14 @@ def test_visualization_initialization(visualization_setup):
     assert len(vis.colors) == 3
 
 def test_visualization_colors_unique(visualization_setup):
-    """Test que les couleurs sont uniques pour chaque schedule."""
+    """Test that colors are unique for each schedule."""
     vis = visualization_setup
     
     colors = list(vis.colors.values())
-    assert len(set(colors)) == len(colors)  # Toutes les couleurs sont uniques
+    assert len(set(colors)) == len(colors)  # All colors are unique
 
 def test_visualization_colors_format(visualization_setup):
-    """Test que les couleurs sont au format hex valide."""
+    """Test that colors are in valid hex format."""
     vis = visualization_setup
     
     for color in vis.colors.values():
@@ -43,7 +43,7 @@ def test_visualization_colors_format(visualization_setup):
         assert len(color) == 7  # Format hex standard: #RRGGBB
 
 def test_visualization_default_names():
-    """Test que les noms par défaut sont utilisés si non fournis."""
+    """Test that default names are used if not provided."""
     schedules = [
         WSDSchedule(steps=5, base_lr=0.1, cooldown_len=0.5),
         ConstantSchedule(steps=5, base_lr=0.05)
@@ -55,7 +55,7 @@ def test_visualization_default_names():
     assert vis.schedules_names[1] == "constant"
 
 def test_make_filename(visualization_setup):
-    """Test la génération de noms de fichiers."""
+    """Test filename generation."""
     vis = visualization_setup
     
     filename = vis._make_filename("test_plot")
@@ -63,6 +63,6 @@ def test_make_filename(visualization_setup):
     assert filename.endswith(".pdf")
     assert "images" in filename
 
-# Note: Les tests de plot_for_every_schedule et plot_comparison nécessiteraient
-# de mocker matplotlib ou de gérer les figures, ce qui est complexe dans un environnement de test.
-# Ces méthodes sont principalement des wrappers autour de matplotlib.
+# Note: Tests for plot_for_every_schedule and plot_comparison would require
+# mocking matplotlib or managing figures, which is complex in a test environment.
+# These methods are primarily wrappers around matplotlib.

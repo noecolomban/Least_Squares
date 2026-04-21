@@ -4,7 +4,7 @@ from src.least_squares import LinearRegression, PowerLawRegression
 
 @pytest.fixture
 def base_model():
-    """Fixture pour instancier un modèle standard avant chaque test."""
+    """Fixture to instantiate a standard model before each test."""
     return LinearRegression(dim=5, sigma=0.1, n_samples=100)
 
 def test_linear_regression_initialization(base_model):
@@ -22,8 +22,8 @@ def test_power_law_eigenvalues():
     exponent = 0.5
     model = PowerLawRegression(dim=dim, exponent=exponent)
     
-    # On vérifie que les valeurs propres décroissent bien selon la loi de puissance
+    # Verify that eigenvalues decrease according to the power law
     expected_lambda = [1.0 / (i**exponent) for i in range(1, dim + 1)]
     
-    # np.allclose gère les petites imprécisions flottantes
+    # np.allclose handles small floating-point imprecisions
     assert np.allclose(sorted(model.Lambda_vals, reverse=True), expected_lambda)

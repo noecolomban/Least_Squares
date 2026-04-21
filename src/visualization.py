@@ -6,6 +6,7 @@ import matplotlib.colors as mcolors
 import os
 from datetime import datetime
 
+
 class Visualization:
     def __init__(self, schedules, schedules_name=None):
         if schedules_name is None:
@@ -31,7 +32,7 @@ class Visualization:
     
     def _make_filename(self, text):
         """Generate a filename for saving plots based on the given text."""
-        return os.path.join("images", f"{text}_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.pdf")
+        return os.path.join("images", f"{text}.pdf")
 
     def plot_for_every_schedule(self, values: dict, title="Risk Trajectories for Different Schedules", legend=True, savefig=False, logscale=False, filename=None, xlabel="Time Step", ylabel="Risk", X=None):
         """Plot the given values for every schedule with distinct colors."""
@@ -76,12 +77,9 @@ class Visualization:
         plt.show()
 
 
-    import matplotlib.pyplot as plt
-
-
     def plot_optimization_at_several_ts(self, results, legend=True, plot_etas=False, savefig=False, logscale=False, filename=None):
         """Plot optimization results at several time steps."""
-        # Création des figures : 2 colonnes si plot_etas est True, sinon 1 seule
+        # Figure creation: 2 columns if plot_etas is True, otherwise 1
         if plot_etas:
             fig, axes = plt.subplots(1, 2, figsize=(14, 6))
             ax_risk = axes[0]
@@ -95,10 +93,10 @@ class Visualization:
             risks = [results[t][name]["min_risk"] for t in t_values]
             etas = [results[t][name]["best_eta"] for t in t_values]
             
-            # Tracé du risque sur le premier graphique
+            # Plot the risk on the first axis
             ax_risk.plot(t_values, risks, label=name, color=self.colors[name], marker='o')
             
-            # Tracé des etas sur le deuxième graphique si demandé
+            # Plot the etas on the second axis if requested
             if plot_etas:
                 ax_eta.plot(t_values, etas, label=f"{name}", color=self.colors[name], linestyle='--', marker='x')
 
@@ -117,7 +115,7 @@ class Visualization:
             ax_eta.set_title("Best Eta at Several Time Steps")
             ax_eta.grid(True)
             if logscale:
-                ax_eta.set_yscale('log') # Applique aussi le logscale si pertinent
+                ax_eta.set_yscale('log') # Also apply log scale if relevant
             if legend:
                 ax_eta.legend()
 
@@ -133,13 +131,13 @@ class Visualization:
 
     def plot_sgd_classes_comparison(self, risks_class1, risks_class2, label_class1="True SGD", label_class2="Noisy GD", title="Comparison: SGD vs Noisy GD", legend=True, savefig=False, logscale=False, xlabel="Time Step", ylabel="Risk",X=None , filename=None):
         """
-        risks_class1 et risks_class2 doivent être des dictionnaires : {nom_schedule: tableau_des_risques}
+        risks_class1 and risks_class2 must be dictionaries: {schedule_name: risks_array}
         """
         plt.figure(figsize=(10, 6))
         
         for name in self.schedules_names:
             if name in risks_class1 and name in risks_class2:
-                # Ligne continue pour la première classe (ex: SGD classique)
+                # Solid line for the first class (e.g., standard SGD)
                 if X is not None:
                     plt.plot(X, risks_class1[name], label=f"{name} - {label_class1}", color=self.colors[name], linestyle='-')
                     plt.plot(X, risks_class2[name], label=f"{name} - {label_class2}", color=self.colors[name], linestyle='--')
@@ -160,7 +158,7 @@ class Visualization:
         if savefig:
             if filename is None:
                 filename = "Comparison_SGD_Classes"
-            # Utilise la fonction _make_filename existante pour sauvegarder
+            # Use the existing _make_filename function to save
             plt.savefig(self._make_filename(filename))
             
         plt.show()
