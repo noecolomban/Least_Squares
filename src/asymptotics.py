@@ -25,7 +25,7 @@ class ZTransform_constant:
     def _compute_m0(self):
         """Compute m0 = diag(Q^T * (x0 - x*) * (x0 - x*)^T * Q)"""
         Sigma0 = np.outer(self.x0.flatten() - self.model.x_star.flatten(), self.x0.flatten() - self.model.x_star.flatten())
-        m0, _ = self.model.compute_M_t(Sigma0)
+        _, m0 = self.model.compute_M_t(Sigma0)
         return m0
     
     def a(self, i):
