@@ -7,24 +7,15 @@ import numpy as np
 from scheduled import WSDSchedule, ConstantSchedule
 from src.visualization import Visualization
 import copy
-from abc import ABC, abstractmethod
+from scipy.special import gamma
 
 
-
-
-class ZTransform_constant:
+class AsymptoticsAnalysis:
     def __init__(self, model: PowerLawRegression, x0, T=1000):
         self.model = model
         self.T = T
         self.x0 = x0
         self.m0 = self._compute_m0()
-        self.schedule = ConstantSchedule(steps=T, base_lr=0.1)
-        self.sgd = SGD(model, x0, self.schedule)
-        self.computations = RiskComputations(model, x0, [self.schedule], ["constant"], sgd_class=SGD)
-
-        self.computations.optimize_all_base_lrs(change_eta=True)
-
-        self._z_transform_results = {}
         self._a = {}
 
     def _compute_m0(self):
@@ -32,8 +23,9 @@ class ZTransform_constant:
         Sigma0 = np.outer(self.x0.flatten() - self.model.x_star.flatten(), self.x0.flatten() - self.model.x_star.flatten())
         _, m0 = self.model.compute_M_t(Sigma0)
         return m0
-    
+
     def a(self, i):
+        """Compute the a_i term (approximation)"""
         assert 0 <= i < self.model.dim, "i must be between 0 and dim-1"
         if i in self._a:
             return self._a[i]
@@ -44,6 +36,19 @@ class ZTransform_constant:
             self._a[i] = a
             return a
 
+
+class ZTransform_constant(AsymptoticsAnalysis):
+    def __init__(self, model: PowerLawRegression, x0, T=1000):
+        super().__init__(model, x0, T)
+        self.schedule = ConstantSchedule(steps=T, base_lr=0.1)
+        self.sgd = SGD(model, x0, self.schedule)
+        self.computations = RiskComputations(model, x0, [self.schedule], ["constant"], sgd_class=SGD)
+
+        self.computations.optimize_all_base_lrs(change_eta=True)
+
+        self._z_transform_results = {}
+        
+    
 
     def compute_z_transform_result(self, i=None):
         """Compute the Z-transform result at step T using m0 and the eigenvalues."""
@@ -107,4 +112,78 @@ def z_transform_several_ts(list_T = None, sigma=0.01, dim=100, eta_range=None):
     return results
 
 
-#class Laplace_constant:
+class Laplace_constant(AsymptoticsAnalysis):
+    def __init__(self, model: PowerLawRegression, x0, T=1000):
+        super().__init__(model, x0, T)
+        self.schedule = ConstantSchedule(steps=T, base_lr=0.1)
+        self.sgd = SGD(model, x0, self.schedule)
+        self.computations = RiskComputations(model, x0, [self.schedule], ["constant"], sgd_class=SGD)
+        self.computations.optimize_all_base_lrs(change_eta=True)
+
+    def compute_true_approx_bias(self, t=None):
+        """Compute the bias term until step t using only the approximation Lambda^2 = lambda lambda.T"""
+        if t is None:
+            t = self.T - 1
+        assert 0 <= t < self.T, "t must be between 0 and T-1"
+        
+        Lambda_vals = self.model.Lambda_vals
+        eta = self.schedule.get_base_lr()
+        
+        return sum([
+            0.5 * Lambda_vals[i]*self.a(i)**t * self.m0[i]  for i in range(self.model.dim)
+        ])
+    
+    def compute_lagrange_approx_bias(self, t=None, m_constant=None, m_exponent=None):
+        """Compute the bias term at step t using the Lagrange method."""
+        if t is None:
+            t = self.T - 1
+        if m_exponent is None or m_constant is None:
+            raise ValueError("m_exponent and m_constant must be provided. m0[i] = m_constant/i**m_exponent")
+        assert 0 <= t < self.T, "t must be between 0 and T-1"
+        
+        Lambda_vals = self.model.Lambda_vals
+        eta = self.schedule.get_base_lr()
+
+        C = (m_exponent - 1)/self.model.exponent + 1
+
+        return m_constant / (2*self.model.exponent) * gamma(C)/(2*eta*t)**C
+
+    def compute_true_approx_variance(self, t=None):
+        
+        if t is None:
+            t = self.T - 1
+        assert 0 <= t < self.T, "t must be between 0 and T-1"
+
+        Lambda_vals = self.model.Lambda_vals
+        eta = self.schedule.get_base_lr()
+        sigma_sq = self.model.sigma**2
+
+        sum_for_i = []
+        for i in range(self.model.dim):
+            sum_for_i.append(np.sum([eta**2 * Lambda_vals[i] * sigma_sq * self.a(i)**(t-1-k) for k in range(t)]))
+        
+        return 0.5 * sum(sum_for_i)
+    
+    def compute_lagrange_approx_variance(self, t=None, m_exponent=None, m_constant=None):
+        if t is None:
+            t = self.T - 1
+        if m_exponent is None or m_constant is None:
+            raise ValueError("m_exponent and m_constant must be provided. m0[i] = m_constant/i**m_exponent")
+        assert 0 <= t < self.T, "t must be between 0 and T-1"
+        assert m_exponent > 1, "m_exponent must be greater than 1 unless the variance diverges"
+
+
+        eta = self.schedule.get_base_lr()
+        sigma_sq = self.model.sigma**2
+
+        return eta * sigma_sq / (2 * (m_exponent - 1))
+    
+    def compute_true_approx_risk(self, t=None):
+        bias = self.compute_true_approx_bias(t)
+        variance = self.compute_true_approx_variance(t)
+        return bias + variance
+
+    def compute_lagrange_approx_risk(self, t=None, m_exponent=None, m_constant=None):
+        bias = self.compute_lagrange_approx_bias(t, m_exponent=m_exponent, m_constant=m_constant)
+        variance = self.compute_lagrange_approx_variance(t, m_exponent=m_exponent, m_constant=m_constant)
+        return bias + variance
