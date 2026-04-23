@@ -82,3 +82,4 @@ plt.savefig(f"images/Final_Risk_vs_T_Approx_vs_ZTransform_{model.__class__.__nam
 plt.legend()
 plt.show()
 # %%
+print(results)

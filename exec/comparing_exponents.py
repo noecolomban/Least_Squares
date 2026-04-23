@@ -19,7 +19,7 @@ sigma = 0.1
 dim = 100
 
 eta = 0.1
-eta_range = np.logspace(-4, 3, 50)
+eta_range = np.logspace(-4, 3, 100)
 t_values = np.linspace(0, T-1, 10, dtype=int)
 
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=2)
@@ -40,7 +40,7 @@ risks_computations_noisy_gd = RiskComputations(model, x0, schedules=schedules2, 
 
 #%%
 
-exponents = np.linspace(0, 4, 15)
+exponents = np.linspace(0, 4, 30)
 diff_results = diff_to_exponents(exponents=exponents, relative=True, dim=dim, sigma=sigma, schedules1=schedules1, schedules2=schedules2, eta_range=eta_range, x0=x0) 
 diff_approx_vs_sgd = diff_sgd_vs_approx(exponents=exponents, relative=True, dim=dim, sigma=sigma, schedules1=schedules1, schedules2=schedules2, schedules_names=["wsd", "constant", "linear"], eta_range=eta_range, x0=x0)
 
@@ -58,5 +58,5 @@ visu.plot_sgd_classes_comparison(
     label_class1=r"$(R_\text{NoisyGD}[T] - R_\text{SGD}[T]) / R_\text{SGD}[T]$",
     label_class2=r"$(R_\text{Approx}[T] - R_\text{SGD}[T]) / R_\text{SGD}[T]$",
     savefig=True,
-    filename=f"Relative_Diff_Risk_Trajectories_Exponents_{T}_sigma_{sigma}")
+    filename=f"Relative_Diff_Risk_Trajectories_Exponents_{T}_sigma_{sigma}_fine")
 # %%

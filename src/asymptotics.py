@@ -7,6 +7,10 @@ import numpy as np
 from scheduled import WSDSchedule, ConstantSchedule
 from src.visualization import Visualization
 import copy
+from abc import ABC, abstractmethod
+
+
+
 
 class ZTransform_constant:
     def __init__(self, model: PowerLawRegression, x0, T=1000):
@@ -101,3 +105,6 @@ def z_transform_several_ts(list_T = None, sigma=0.01, dim=100, eta_range=None):
         ztransform, approx = asymptotics_analysis.compute_all_approx_vs_z_transform()
         results[T] = (ztransform, approx)
     return results
+
+
+#class Laplace_constant:
