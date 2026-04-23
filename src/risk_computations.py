@@ -180,6 +180,8 @@ class RiskComputations:
 
         return results
 
+        
+
     def adapt_eta_from_file(self, filename=None, several_ts=False):
         if filename is None:
             filename = self.last_optimization_file

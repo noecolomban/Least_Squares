@@ -14,12 +14,12 @@ from src.utils import save_risk_results
 
 #%%
 
-T=1000
+T=10000
 sigma = 0.1
 dim = 100
 
 eta = 0.1
-eta_range = np.logspace(-4, 2, 30)
+eta_range = np.logspace(-4, 3, 50)
 t_values = np.linspace(0, T-1, 10, dtype=int)
 
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=2)
@@ -57,4 +57,6 @@ visu.plot_sgd_classes_comparison(
     logscale=True,
     label_class1=r"$(R_\text{NoisyGD}[T] - R_\text{SGD}[T]) / R_\text{SGD}[T]$",
     label_class2=r"$(R_\text{Approx}[T] - R_\text{SGD}[T]) / R_\text{SGD}[T]$",
-    savefig=True)
+    savefig=True,
+    filename=f"Relative_Diff_Risk_Trajectories_Exponents_{T}_sigma_{sigma}")
+# %%

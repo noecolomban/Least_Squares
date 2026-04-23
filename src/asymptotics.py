@@ -1,3 +1,4 @@
+from unittest import result
 from xml.dom.minidom import Element
 from src.risk_computations import RiskComputations
 from src.least_squares import PowerLawRegression
@@ -66,9 +67,6 @@ class ZTransform_constant:
         return self._z_transform_results[i]
 
 
-    
-
-
     def compute_all_approx_vs_z_transform(self):
         """Compute the Z-transform results and the approximate risks for all steps up to T-1.
         Affine interpolation for approx"""
@@ -78,3 +76,28 @@ class ZTransform_constant:
         
         return z_results_values, approx_risks
         
+
+def z_transform_several_ts(list_T = None, sigma=0.01, dim=100, eta_range=None):
+    """Compute and plot the Z-transform results at several time steps."""
+    if list_T is None:
+        list_T = [100, 500, 1000, 5000, 10000]
+    
+    results = {}
+    for T in list_T:
+        eta = 0.1
+        if eta_range is None:
+            eta_range = np.logspace(-4, 2, 30)
+
+        model = PowerLawRegression(dim=dim, sigma=sigma, exponent=2)
+        constant = ConstantSchedule(steps=T, base_lr=eta)
+
+        beta = 0
+        x0 = np.array([1/i**beta for i in range(1, dim+1)])
+
+        schedules1 = [constant]
+        asymptotics_analysis = ZTransform_constant(model, x0, T=T)
+
+        # %%
+        ztransform, approx = asymptotics_analysis.compute_all_approx_vs_z_transform()
+        results[T] = (ztransform, approx)
+    return results
