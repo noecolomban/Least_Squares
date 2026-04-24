@@ -141,5 +141,5 @@ class PowerLawRegression(LinearRegression):
 def compute_power_x0(dim, x_star, Q, beta=1):
     """Compute an initial point x0 such that delta0 = 1/i**beta in the eigenvector space"""
     delta0 = np.array([1.0 / (i**beta) for i in range(1, dim + 1)])
-    x0 = x_star + (Q @ delta0).reshape(-1, 1)
+    x0 = x_star.flatten() + (Q @ delta0).flatten()
     return x0
