@@ -2,7 +2,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from src.least_squares import LinearRegression, PowerLawRegression
+from src.least_squares import LinearRegression, PowerLawRegression, compute_power_x0
 from src.SGD import SGD, NoisyGD
 from scheduled import WSDSchedule, ConstantSchedule
 from src.new_schedules.polynomial import PolynomialSchedule
@@ -14,7 +14,7 @@ from src.utils import save_risk_results
 
 #%%
 
-T=10000
+T=1000
 sigma = 0.1
 dim = 100
 
@@ -28,8 +28,8 @@ wsd = WSDSchedule(steps=T, base_lr=eta, cooldown_len=0.2)
 constant = ConstantSchedule(steps=T, base_lr=eta)
 linear = WSDSchedule(steps=T, base_lr=eta, cooldown_len=1.)
 
-beta = 0
-x0 = np.array([1/i**beta for i in range(1, dim+1)])
+beta = 2
+x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta)
 
 
 schedules1 = [wsd, constant, linear]
@@ -40,7 +40,7 @@ risks_computations_noisy_gd = RiskComputations(model, x0, schedules=schedules2, 
 
 #%%
 
-exponents = np.linspace(0, 4, 30)
+exponents = np.linspace(0, 4, 15)
 diff_results = diff_to_exponents(exponents=exponents, relative=True, dim=dim, sigma=sigma, schedules1=schedules1, schedules2=schedules2, eta_range=eta_range, x0=x0) 
 diff_approx_vs_sgd = diff_sgd_vs_approx(exponents=exponents, relative=True, dim=dim, sigma=sigma, schedules1=schedules1, schedules2=schedules2, schedules_names=["wsd", "constant", "linear"], eta_range=eta_range, x0=x0)
 
@@ -58,5 +58,5 @@ visu.plot_sgd_classes_comparison(
     label_class1=r"$(R_\text{NoisyGD}[T] - R_\text{SGD}[T]) / R_\text{SGD}[T]$",
     label_class2=r"$(R_\text{Approx}[T] - R_\text{SGD}[T]) / R_\text{SGD}[T]$",
     savefig=True,
-    filename=f"Relative_Diff_Risk_Trajectories_Exponents_{T}_sigma_{sigma}_fine")
+    filename=f"Relative_Diff_Risk_Trajectories_Exponents_{T}_sigma_{sigma}_fast.pdf")
 # %%

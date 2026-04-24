@@ -1,110 +1,136 @@
-from unittest import result
-from xml.dom.minidom import Element
 from src.risk_computations import RiskComputations
 from src.least_squares import PowerLawRegression
 from src.SGD import SGD
 import numpy as np
 from scheduled import WSDSchedule, ConstantSchedule
-from src.visualization import Visualization
-import copy
-from abc import ABC, abstractmethod
+from scipy.special import gamma
 
 
-
-
-class ZTransform_constant:
-    def __init__(self, model: PowerLawRegression, x0, T=1000):
+class AsymptoticsAnalysis:
+    def __init__(self, model: PowerLawRegression, x0):
+        # Removed T from init to emphasize it's independent from the base mathematical setup
         self.model = model
-        self.T = T
         self.x0 = x0
         self.m0 = self._compute_m0()
-        self.schedule = ConstantSchedule(steps=T, base_lr=0.1)
-        self.sgd = SGD(model, x0, self.schedule)
-        self.computations = RiskComputations(model, x0, [self.schedule], ["constant"], sgd_class=SGD)
-
-        self.computations.optimize_all_base_lrs(change_eta=True)
-
-        self._z_transform_results = {}
-        self._a = {}
 
     def _compute_m0(self):
         """Compute m0 = diag(Q^T * (x0 - x*) * (x0 - x*)^T * Q)"""
-        Sigma0 = np.outer(self.x0.flatten() - self.model.x_star.flatten(), self.x0.flatten() - self.model.x_star.flatten())
+        diff = self.x0.flatten() - self.model.x_star.flatten()
+        Sigma0 = np.outer(diff, diff)
         _, m0 = self.model.compute_M_t(Sigma0)
         return m0
-    
-    def a(self, i):
-        assert 0 <= i < self.model.dim, "i must be between 0 and dim-1"
-        if i in self._a:
-            return self._a[i]
-        else:
-            eta = self.schedule.get_base_lr()
-            Lambda_vals = self.model.Lambda_vals
-            a = (1 - eta*Lambda_vals[i])**2 + 2*eta**2*Lambda_vals[i]**2
-            self._a[i] = a
-            return a
+
+    def get_a_vals(self, eta):
+        """Compute all 'a' values simultaneously using vectorization for a given eta."""
+        L = self.model.Lambda_vals
+        return (1 - eta * L)**2 + 2 * (eta**2) * (L**2)
 
 
-    def compute_z_transform_result(self, i=None):
-        """Compute the Z-transform result at step T using m0 and the eigenvalues."""
-        if i is None:
-            i = self.model.dim - 1
-        assert 0 <= i < self.model.dim, "i must be between 0 and dim-1"
+class Laplace_constant(AsymptoticsAnalysis):
+    def __init__(self, model: PowerLawRegression, x0):
+        # Initialize without a fixed T
+        super().__init__(model, x0)
+        self.T = None
+        self.schedule = None
+        self.sgd = None
+        self.computations = None
+
+    def _setup_for_T(self, T):
+        """Configure the schedule and computations for a specific horizon T."""
+        self.T = T
+        self.schedule = ConstantSchedule(steps=T, base_lr=0.1)
+        self.sgd = SGD(self.model, self.x0, self.schedule)
+        self.computations = RiskComputations(
+            self.model, self.x0, [self.schedule], ["constant"], sgd_class=SGD
+        )
         
-        if i in self._z_transform_results:
-            return self._z_transform_results[i]
+        # Optimize learning rate specifically for this T
+        self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)
 
-        Lambda_vals = self.model.Lambda_vals
-        eta = self.schedule.get_base_lr()  
+    def compute_true_approx_bias(self, t):
+        """Compute the bias term using the approximation."""
+        L = self.model.Lambda_vals
+        eta = self.schedule.get_base_lr()
+        a = self.get_a_vals(eta)
+        
+        return 0.5 * np.sum(L * (a**t) * self.m0)
+
+    def compute_true_approx_variance(self, t):
+        """Compute the variance term using a geometric series."""
+        eta = self.schedule.get_base_lr()
+        L = self.model.Lambda_vals
         sigma_sq = self.model.sigma**2
 
-        if 0 not in self._z_transform_results:
-            self._z_transform_results[0] = 0.5 * (eta**2 * Lambda_vals[0]**2 * sigma_sq) / (1 - self.a(0))
-
-        current_max_t = max(self._z_transform_results.keys())
+        term = (L**2) * (eta**2) * sigma_sq
+        a = self.get_a_vals(eta)
         
-        for j in range(current_max_t + 1, i + 1):
-            prev_val = self._z_transform_results[j - 1] 
-            current_term = 0.5 * (eta**2 * Lambda_vals[j]**2 * sigma_sq) / (1 - self.a(j))
-            self._z_transform_results[j] = prev_val + current_term
+        # Apply geometric sum formula: sum(a^k) = (1 - a^t) / (1 - a)
+        geom_sum = np.where(a == 1, t, (1 - a**t) / (1 - a))
+            
+        return 0.5 * np.sum(term * geom_sum)
 
-        return self._z_transform_results[i]
-
-
-    def compute_all_approx_vs_z_transform(self):
-        """Compute the Z-transform results and the approximate risks for all steps up to T-1.
-        Affine interpolation for approx"""
-
-        z_results_values = {"constant" : self.compute_z_transform_result()*np.ones(self.T)}
-        approx_risks = self.computations.approx_all_theoretical_risks()
+    def compute_true_approx_risk_for_T(self, T):
+        """Setup for T, optimize eta, and compute total true approximate risk."""
+        self._setup_for_T(T)
         
-        return z_results_values, approx_risks
+        # Usually evaluated at T or T-1 depending on your exact convention
+        # Here we use T directly as it seems to be the target evaluation step
+        bias = self.compute_true_approx_bias(T)
+        variance = self.compute_true_approx_variance(T)
         
+        return bias + variance
 
-def z_transform_several_ts(list_T = None, sigma=0.01, dim=100, eta_range=None):
-    """Compute and plot the Z-transform results at several time steps."""
-    if list_T is None:
-        list_T = [100, 500, 1000, 5000, 10000]
-    
+    def compute_lagrange_approx_risk_for_T(self, T, m_exponent, m_constant):
+        """Setup for T, optimize eta, and compute Lagrange approximate risk."""
+        self._setup_for_T(T)
+        eta = self.schedule.get_base_lr()
+        sigma_sq = self.model.sigma**2
+        
+        # Bias
+        C = (m_exponent - 1) / self.model.exponent + 1
+        bias = m_constant / (2 * self.model.exponent) * gamma(C) / (2 * eta * T)**C
+        
+        # Variance
+        variance = eta * sigma_sq / (2 * (self.model.exponent - 1))
+        
+        return bias + variance
+
+#end of class definitions
+
+
+
+def compute_real_approx_for_several_ts(T_values, model, x0):
+    """Compute True risk approximation efficiently by sharing m0 across T."""
     results = {}
-    for T in list_T:
-        eta = 0.1
-        if eta_range is None:
-            eta_range = np.logspace(-4, 2, 30)
-
-        model = PowerLawRegression(dim=dim, sigma=sigma, exponent=2)
-        constant = ConstantSchedule(steps=T, base_lr=eta)
-
-        beta = 0
-        x0 = np.array([1/i**beta for i in range(1, dim+1)])
-
-        schedules1 = [constant]
-        asymptotics_analysis = ZTransform_constant(model, x0, T=T)
-
-        # %%
-        ztransform, approx = asymptotics_analysis.compute_all_approx_vs_z_transform()
-        results[T] = (ztransform, approx)
+    
+    # Instantiate Laplace analysis ONCE. m0 is computed here.
+    print("Initializing Asymptotics Analysis and computing m0...")
+    laplace_analysis = Laplace_constant(model, x0)
+    
+    for T in T_values:
+        print(f"Optimizing and computing True risk approximation for T={T}...")
+        # For each T, it will just re-init the schedule, run optimization, and compute
+        risk = laplace_analysis.compute_true_approx_risk_for_T(T)
+        results[T] = risk
+        print(f"True risk approximation for T={T} computed: {risk}")
+        
     return results
 
 
-#class Laplace_constant:
+def compute_laplace_for_several_ts(T_values, model, x0, Delta, beta):
+    """Compute Lagrange risk approximation efficiently by sharing m0 across T."""
+    results = {}
+    
+    # Instantiate Laplace analysis ONCE. m0 is computed here.
+    print("Initializing Asymptotics Analysis and computing m0...")
+    laplace_analysis = Laplace_constant(model, x0)
+    
+    for T in T_values:
+        print(f"Optimizing and computing Lagrange risk approximation for T={T}...")
+        risk = laplace_analysis.compute_lagrange_approx_risk_for_T(
+            T, m_exponent=beta, m_constant=Delta
+        )
+        results[T] = risk
+        print(f"Laplace risk approximation for T={T} computed: {risk}")
+        
+    return results
