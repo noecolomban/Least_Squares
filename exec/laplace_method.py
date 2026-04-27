@@ -1,4 +1,4 @@
-#%%
+#%% CONSTANT SCHEDULE
 from turtle import color
 from unittest import result
 
@@ -8,13 +8,12 @@ from src.least_squares import PowerLawRegression, compute_power_x0
 
 from src.asymptotics import (
     Laplace_constant,  
-    compute_laplace_for_several_ts, 
-    compute_real_approx_for_several_ts
+    Laplace_linear
 )
 
 # %%
 dim = 100
-sigma = 0.
+sigma = 0.1
 exponent = 2
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
 
@@ -27,7 +26,7 @@ x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 T = 10000
 
-laplace_analysis = Laplace_constant(model, x0)
+laplace_analysis = Laplace_constant(model, x0, T)
 
 #print("Computing True approximation...")
 #laplace_result = laplace_analysis.compute_true_approx_risk()
@@ -39,12 +38,14 @@ laplace_analysis = Laplace_constant(model, x0)
 #print("Laplace risk approximation computed = ", real_risk_approx)
 #%%
 
+results_laplace = laplace_analysis.compute_laplace_for_several_ts(
+    T, Delta, beta,
+    step=100)
 
-results_laplace = compute_laplace_for_several_ts([100, 500, 1000, 5000], model, x0, Delta, beta)
+results_real_approx = laplace_analysis.compute_real_approx_for_several_ts(
+    T,
+    step=100)
 #%%
-
-results_real_approx = compute_real_approx_for_several_ts([100, 500, 1000, 5000], model, x0)
-# %%
 
 plt.plot(list(results_laplace.keys()), list(results_laplace.values()), label="Laplace approximation")
 plt.plot(list(results_real_approx.keys()), list(results_real_approx.values()), label="True approximation")
@@ -52,14 +53,14 @@ plt.xscale("log")
 plt.yscale("log")
 plt.xlabel("T")
 plt.ylabel("Risk approximation")
-plt.title(f"Laplace risk approximation vs True risk approximation for different T, sigma={sigma}, beta={beta}")
+plt.title(f"Constant schedule: \n Laplace risk approximation vs True risk approximation for different T, sigma={sigma}, beta={beta}")
 plt.legend()
 plt.grid()
 plt.savefig("images/laplace_vs_true_approximation_T=100000.pdf")
 plt.show()
 # %%
 
-def compute_different_sigmas(T_values, model, x0, Delta, beta, sigmas):
+def compute_different_sigmas(T_values, model, x0, Delta, beta, sigmas, schedule_type="constant"):
     """Compute Laplace risk approximation for different noise levels."""
     results = {}
     real_approx = {}
@@ -67,9 +68,8 @@ def compute_different_sigmas(T_values, model, x0, Delta, beta, sigmas):
     for sigma in sigmas:
         print(f"Computing for sigma={sigma}...")
         model.sigma = sigma  # Update the noise level in the model
-        laplace_analysis = Laplace_constant(model, x0)  # Re-instantiate to update m0 if needed
-        risk = compute_laplace_for_several_ts(T_values, model, x0, Delta, beta)
-        real_approx[sigma] = compute_real_approx_for_several_ts(T_values, model, x0)
+        risk = compute_laplace_for_several_ts(T_values, model, x0, Delta, beta, schedule_type=schedule_type)
+        real_approx[sigma] = compute_real_approx_for_several_ts(T_values, model, x0, schedule_type=schedule_type)
         results[sigma] = risk
         print(f"Laplace risk approximation for sigma={sigma} computed.")
         
@@ -92,3 +92,62 @@ plt.legend()
 plt.grid()
 plt.savefig("images/laplace_vs_true_approximation_different_sigmas_T=100000.pdf")
 plt.show()
+
+#%% LINEAR SCHEDULE
+
+from turtle import color
+from unittest import result
+
+import numpy as np
+import matplotlib.pyplot as plt
+from src.least_squares import PowerLawRegression, compute_power_x0
+
+from src.asymptotics import (
+    Laplace_constant,  
+    Laplace_linear
+)
+
+# %%
+dim = 100
+sigma = 0.5
+exponent = 2
+model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
+
+Delta = 1
+beta = 2
+diff0 = Delta * np.array([1/i**beta for i in range(1, dim+1)])
+#beta/2 so that m0i = Delta/i^beta, which is the form we want
+x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
+
+
+T = 50000
+
+linear_laplace_analysis = Laplace_linear(model, x0, T)
+#%%
+results_laplace = linear_laplace_analysis.compute_laplace_for_several_ts(
+    T, Delta, beta,
+    step=10)
+
+results_real_approx = linear_laplace_analysis.compute_real_approx_for_several_ts(
+    T,
+    step=10)
+# %%
+
+print(results_laplace)
+
+# %%
+plt.plot(list(results_laplace.keys()), list(results_laplace.values()), label="Laplace approximation")
+plt.plot(list(results_real_approx.keys()), list(results_real_approx.values()), label="True approximation")
+plt.title(f"Linear schedule: \n Laplace risk approximation vs True risk approximation for different T \n sigma={sigma}, beta={beta}")
+plt.xscale("log")
+plt.yscale("log")
+plt.xlabel("T")
+plt.ylabel("Risk approximation")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/laplace_vs_true_approximation_linear_schedule_T={T}_sigma={sigma}.pdf")
+plt.show()
+# %%
+
+
+
