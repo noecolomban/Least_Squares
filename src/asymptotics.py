@@ -211,3 +211,21 @@ class Laplace_linear(AsymptoticsAnalysis):
         
         return bias + variance
 
+
+#End of class definitions
+
+def compute_different_sigmas(T, model, x0, Delta, beta, sigmas, schedule_type="constant"):
+    """Compute Laplace risk approximation for different noise levels."""
+    results = {}
+    real_approx = {}
+    
+    for sigma in sigmas:
+        print(f"Computing for sigma={sigma}...")
+        model.sigma = sigma  # Update the noise level in the model
+        analysis = Laplace_constant(model, x0, T) if schedule_type == "constant" else Laplace_linear(model, x0, T)
+        risk = analysis.compute_laplace_for_several_ts(T, Delta, beta)
+        real_approx[sigma] = analysis.compute_real_approx_for_several_ts(T)
+        results[sigma] = risk
+        print(f"Laplace risk approximation for sigma={sigma} computed.")
+        
+    return results, real_approx
