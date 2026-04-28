@@ -91,7 +91,9 @@ from src.least_squares import PowerLawRegression, compute_power_x0
 
 from src.asymptotics import (
     Laplace_constant,  
-    Laplace_linear
+    Laplace_linear,
+    compute_different_sigmas,
+
 )
 
 # %%
@@ -138,22 +140,35 @@ plt.show()
 
 
 
-results_different_sigmas_linear = compute_different_sigmas(10000, model, x0, Delta, beta, sigmas=[0., 0.1, 0.5, 1.], schedule_type="linear")
+results_different_sigmas_linear = compute_different_sigmas(10000, model, x0, Delta, beta, sigmas=[0., 0.1, 0.5, 1., 2., 3.], schedule_type="linear")
 risk_dict, real_approx_dict = results_different_sigmas_linear
 
 
 #%%
+plt.figure(figsize=(10, 6))
 for sigma in risk_dict.keys():
-    color = np.random.rand(3,)  # Random color for each sigma
+    # Generate a random color for each sigma
+    #color = np.random.rand(3,)  # Random color with some transparency
+    cmap = plt.get_cmap('tab20')  # Choose a colormap
+    color = cmap(np.random.random())
+    
     plt.plot(list(risk_dict[sigma].keys()), list(risk_dict[sigma].values()), label=f"Laplace approximation, sigma={sigma}", color=color)
-    plt.plot(list(real_approx_dict[sigma].keys()), list(real_approx_dict[sigma].values()), label=f"True approximation, sigma={sigma}", linestyle="dashed", color=color)
+    plt.plot(list(real_approx_dict[sigma].keys()), list(real_approx_dict[sigma].values()), label=f"Diagonal approximation, sigma={sigma}", linestyle="dashed", color=color)
+
 plt.xscale("log")
 plt.yscale("log")
 plt.xlabel("T")
 plt.ylabel("Risk approximation")
 plt.title(rf"Laplace risk approximation vs Diagonal approximation for different T and $\sigma$"+"\n"+rf"$\beta$={beta}")
-plt.legend()
+
+# Place the legend outside the plot area
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
 plt.grid()
+
+# Adjust the layout so the legend is not cut off in the saved PDF
+plt.tight_layout()
+
 plt.savefig(f"images/laplace_vs_true_approximation_different_sigmas_T={T}_linear.pdf")
 plt.show()
 # %%
