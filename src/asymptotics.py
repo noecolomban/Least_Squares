@@ -158,59 +158,35 @@ class Laplace_linear(AsymptoticsAnalysis):
 
 
     def compute_laplace_approx_risk_for_T(self, T, m_exponent, m_constant):
-        """Setup for T, optimize eta, and compute 2nd-order Laplace approximate risk for a linear schedule."""
-        # Note: Assuming self._setup_for_T(T) is called outside or not needed in this specific snippet
+        """Setup for T, optimize eta, and compute 1st-order Laplace approximate risk for a linear schedule."""
+        # Extract base parameters from schedule and model
         eta = self.schedule.get_base_lr() 
         sigma_sq = self.model.sigma**2
         alpha = self.model.exponent
         
+        # Calculate 1st-order bias component
         C1 = (m_exponent - 1) / alpha + 1
-        # C2 corresponds to (beta - 1) / alpha + 3 (for the 2nd order correction)
-        C2 = C1 + 2 
-        
         bias_base = eta * (T + 1)
+        bias = (m_constant / (2 * alpha)) * gamma(C1) / (bias_base ** C1)
         
-        # Calculate the sum of squares for the bias correction: sum_{j=0}^{T-1} (eta * (T-j) / T)^2
-        # Using the arithmetic sum of squares formula: sum_{i=1}^{T} i^2 = T(T+1)(2T+1)/6
-        bias_sum_sq = (eta**2 / T**2) * (T * (T + 1) * (2 * T + 1)) / 6
-        
-        # 1st order and 2nd order bias components
-        bias_1st_order = (m_constant / (2 * alpha)) * gamma(C1) / (bias_base ** C1)
-        bias_2nd_order = (m_constant / (2 * alpha)) * bias_sum_sq * gamma(C2) / (bias_base ** C2)
-        
-        bias = bias_1st_order + bias_2nd_order
-        
-        
-       
+        # Setup constants for variance calculation
         Cv1 = (2 * alpha - 1) / alpha
-        Cv2 = Cv1 + 2
-        
         variance_prefix = (sigma_sq * eta**2) / (2 * alpha)
         
         k = np.arange(T - 1)
         n = T - k - 1 
-        
         var_base = (eta / T) * n * (T - k)
         
-        # Calculate the sum of squares for the variance correction: sum_{j=k+1}^{T-1} (eta * (T-j) / T)^2
-        # Using the arithmetic sum of squares formula: sum_{i=1}^{n} i^2 = n(n+1)(2n+1)/6
-        var_sum_sq = (eta**2 / T**2) * (n * (n + 1) * (2 * n + 1)) / 6
-        
-        # 1st order variance terms
         terms_1st = ((T - k) / T)**2 / (var_base ** Cv1)
         sum_terms_1st = np.sum(terms_1st) * gamma(Cv1)
         
-        # 2nd order variance correction terms
-        terms_2nd = ((T - k) / T)**2 * var_sum_sq / (var_base ** Cv2)
-        sum_terms_2nd = np.sum(terms_2nd) * gamma(Cv2)
-        
         # Special case for the last term (k = T - 1) where var_base becomes 0
+        # This evaluates the exact integral when the exponential argument vanishes
         last_term = (1 / T)**2 * (alpha / (2 * alpha - 1))
         
-        variance = variance_prefix * (sum_terms_1st + sum_terms_2nd + last_term)
+        variance = variance_prefix * (sum_terms_1st + last_term)
         
         return bias + variance
-
 
 #End of class definitions
 

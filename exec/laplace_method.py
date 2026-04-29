@@ -82,7 +82,6 @@ plt.show()
 
 #%% LINEAR SCHEDULE
 
-from turtle import color
 from unittest import result
 
 import numpy as np
@@ -109,7 +108,7 @@ diff0 = Delta * np.array([1/i**beta for i in range(1, dim+1)])
 x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 
-T = 50000
+T = 10000
 
 linear_laplace_analysis = Laplace_linear(model, x0, T)
 #%%
@@ -121,12 +120,12 @@ results_real_approx = linear_laplace_analysis.compute_real_approx_for_several_ts
     T,
     step=10)
 # %%
-
+print(f"eta = {linear_laplace_analysis.schedule.get_base_lr():.5g}")
 print(results_laplace)
 
 # %%
-plt.plot(list(results_laplace.keys()), list(results_laplace.values()), label="Laplace approximation")
-plt.plot(list(results_real_approx.keys()), list(results_real_approx.values()), label="True approximation")
+plt.plot(list(results_laplace.keys()), np.array(list(results_laplace.values())), label="Laplace approximation")
+plt.plot(list(results_real_approx.keys()), np.array(list(results_real_approx.values())), label="True approximation")
 plt.title(f"Linear schedule: \n Laplace risk approximation vs True risk approximation for different T \n sigma={sigma}, beta={beta}")
 plt.xscale("log")
 plt.yscale("log")
@@ -134,7 +133,7 @@ plt.xlabel("T")
 plt.ylabel("Risk approximation")
 plt.legend()
 plt.grid()
-plt.savefig(f"images/laplace_vs_true_approximation_linear_schedule_T={T}_sigma={sigma}.pdf")
+plt.savefig(f"images/laplace_vs_true_approximation_linear_schedule_T={T}_sigma={sigma}_1st_order.pdf")
 plt.show()
 # %%
 
@@ -169,6 +168,6 @@ plt.grid()
 # Adjust the layout so the legend is not cut off in the saved PDF
 plt.tight_layout()
 
-plt.savefig(f"images/laplace_vs_true_approximation_different_sigmas_T={T}_linear.pdf")
+plt.savefig(f"images/laplace_vs_true_approximation_different_sigmas_T={T}_linear_1st_order.pdf")
 plt.show()
 # %%
