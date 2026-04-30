@@ -1,5 +1,3 @@
-from matplotlib.pylab import beta
-
 from src.risk_computations import RiskComputations
 from src.least_squares import PowerLawRegression
 from src.SGD import SGD
@@ -11,15 +9,16 @@ from abc import ABC, abstractmethod
 
 class AsymptoticsAnalysis(ABC):
     def __init__(self, model: PowerLawRegression, x0):
-        # Removed T from init to emphasize it's independent from the base mathematical setup
         self.model = model
         self.x0 = x0
         self.m0 = self._compute_m0()
         self.schedule = None
         self.sgd = None
         self.computations = None
-        self.T = None
 
+    @property
+    def T(self):
+        return self.schedule._steps
 
     def _compute_m0(self):
         """Compute m0 = diag(Q^T * (x0 - x*) * (x0 - x*)^T * Q)"""
@@ -33,70 +32,37 @@ class AsymptoticsAnalysis(ABC):
         L = self.model.Lambda_vals
         return (1 - eta * L)**2 + 2 * (eta**2) * (L**2)
 
-    def compute_true_approx_bias(self, t):
-        """Compute the bias term using the approximation."""
-        L = self.model.Lambda_vals
-        eta = self.schedule.get_base_lr()
-        a = self.get_a_vals(eta)
         
-        return 0.5 * np.sum(L * (a**t) * self.m0)
+    def compute_true_approx_biases_and_variances(self, T_values, K=1):
+        """Compute bias for different T values at t=K*T."""
+        assert 0<= K <= 1, "K should be between 0 and 1 to ensure t=K*T is a valid step within the schedule."
 
-    def compute_true_approx_variance(self, t):
-        """Compute the variance term using a geometric series."""
-        eta = self.schedule.get_base_lr()
-        L = self.model.Lambda_vals
-        sigma_sq = self.model.sigma**2
-
-        term = (L**2) * (eta**2) * sigma_sq
-        a = self.get_a_vals(eta)
-        
-        # Apply geometric sum formula: sum(a^k) = (1 - a^t) / (1 - a)
-        geom_sum = np.where(a == 1, t, (1 - a**t) / (1 - a))
-            
-        return 0.5 * np.sum(term * geom_sum)
+        biases = {}
+        variances = {}
+        for T in T_values:
+            self._update_schedule_for_T(T)  # Update schedule for new T
+            list_bias, list_variance = self.sgd.approx_all_theoretical_risks(separate_bias_variance=True)
+            t = int(K * (T-1))  
+            biases[T] = list_bias[t]
+            variances[T] = list_variance[t]
+        return biases, variances
     
-    def compute_true_approx_risk_for_T(self, T):
-        """Setup for T, optimize eta, and compute total true approximate risk."""
-        
-        # Usually evaluated at T or T-1 depending on your exact convention
-        # Here we use T directly as it seems to be the target evaluation step
-        bias = self.compute_true_approx_bias(T)
-        variance = self.compute_true_approx_variance(T)
-        
-        return bias + variance
 
-    def compute_real_approx_for_several_ts(self, T, step=10):
-        """Compute True risk approximation efficiently by sharing m0 across T."""
-        results = {}
-        
-        print("Computing True approximation...")
-        for t in range(1, T+1, step):
-            if t % (step * 10) == 1:  # Print progress every 10 steps
-                print(f"Computing for t={t}...")
-            risk = self.compute_true_approx_risk_for_T(t)
-            results[t] = risk
-        print(f"True risk approximation for t={t} computed: {risk}")
-            
-        return results
+    def compute_true_approx_risks(self, T_values, K=1):
+        """Compute True risk approximation for different T values at t=K*T."""
+        assert 0<= K <= 1, "K should be between 0 and 1 to ensure t=K*T is a valid step within the schedule."
+        biases, variances = self.compute_true_approx_biases_and_variances(T_values, K)
+        risks = {T: biases[T] + variances[T] for T in T_values}
+        return risks
 
-    def compute_laplace_for_several_ts(self, T, Delta, beta, step=10):
-        """Compute Lagrange risk approximation efficiently by sharing m0 across T."""
-        results = {}
-        print("Computing Laplace risk approximation...")
-        for t in range(1, T+1, step):
-            if t % (step * 10) == 1:  # Print progress every 10 steps
-                print(f"Computing for T={t}...")
-            risk = self.compute_laplace_approx_risk_for_T(
-                t, m_exponent=beta, m_constant=Delta
-            )
-            results[t] = risk
-        print(f"Laplace risk approximation for T={T} computed: {risk}")
-            
-        return results
-    
     @abstractmethod
     def compute_laplace_approx_risk_for_T(self, T, m_exponent, m_constant):
         """Abstract method to compute Laplace risk approximation"""
+        pass
+
+    @abstractmethod
+    def _update_schedule_for_T(self, T):
+        """Abstract method to update the schedule for a new T"""
         pass
 
 
@@ -146,7 +112,6 @@ class Laplace_linear(AsymptoticsAnalysis):
 
     def _setup_for_T(self, T):
         """Configure the schedule and computations for a specific horizon T."""
-        self.T = T
         self.schedule = WSDSchedule(steps=T, base_lr=0.1, cooldown_len=1.)
         self.sgd = SGD(self.model, self.x0, self.schedule)
         self.computations = RiskComputations(
@@ -156,39 +121,86 @@ class Laplace_linear(AsymptoticsAnalysis):
         # Optimize learning rate specifically for this T
         self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)
 
+    def _update_schedule_for_T(self, T):
+        """Update the schedule and re-optimize eta for a new T."""
+        assert self.schedule is not None, "Schedule must be initialized before updating."
+        self.schedule = WSDSchedule(steps=T, base_lr=self.schedule.get_base_lr(), cooldown_len=1.)
+        self.sgd.schedule = self.schedule
 
-    def compute_laplace_approx_risk_for_T(self, T, m_exponent, m_constant):
-        """Setup for T, optimize eta, and compute 1st-order Laplace approximate risk for a linear schedule."""
-        # Extract base parameters from schedule and model
+    def compute_laplace_approx_bias(self, T, t, m_exponent, m_constant):
+        """Compute the bias term for the linear schedule using the Laplace approximation at step t."""
         eta = self.schedule.get_base_lr() 
-        sigma_sq = self.model.sigma**2
         alpha = self.model.exponent
         
         # Calculate 1st-order bias component
         C1 = (m_exponent - 1) / alpha + 1
-        bias_base = eta * (T + 1)
+        
+        # Calculate bias_base using the generalized formula for step t
+        # Assuming L = 1 as in the original code structure
+        bias_base = 2 * eta * (t - (t * (t - 1)) / (2 * T))
+        
+        # Handle edge case at initialization to avoid division by zero
+        if bias_base <= 0:
+            return float('inf')
+            
         bias = (m_constant / (2 * alpha)) * gamma(C1) / (bias_base ** C1)
+
+        return bias
+    
+    def compute_laplace_approx_variance(self, T, t, *args, **kwargs):
+        """Compute the variance term for the linear schedule using the Laplace approximation at step t."""
+        eta = self.schedule.get_base_lr() 
+        sigma_sq = self.model.sigma**2
+        alpha = self.model.exponent
         
         # Setup constants for variance calculation
         Cv1 = (2 * alpha - 1) / alpha
         variance_prefix = (sigma_sq * eta**2) / (2 * alpha)
         
-        k = np.arange(T - 1)
-        n = T - k - 1 
-        var_base = (eta / T) * n * (T - k)
+        # Variance is 0 before any steps are taken
+        if t <= 0:
+            return 0.0
+        
+        k = np.arange(t - 1)
+        
+        var_base = (2 * eta / T) * (t - k - 1) * (T - (t + k) / 2)
         
         terms_1st = ((T - k) / T)**2 / (var_base ** Cv1)
         sum_terms_1st = np.sum(terms_1st) * gamma(Cv1)
         
-        # Special case for the last term (k = T - 1) where var_base becomes 0
-        # This evaluates the exact integral when the exponential argument vanishes
-        last_term = (1 / T)**2 * (alpha / (2 * alpha - 1))
-        
+        # Special case for the last term (k = t - 1) where var_base becomes 0
+        #last_term = ((T - (t - 1)) / T)**2 * (alpha / (2 * alpha - 1))
+        last_term = ((T - (t - 1)) / T)**2 * (alpha / (2 * alpha - 1))
+
         variance = variance_prefix * (sum_terms_1st + last_term)
-        
+
+        return variance
+    
+
+    def compute_laplace_approx_risk_for_T(self, T, t, m_exponent, m_constant):
+        """Setup for T, optimize eta, and compute 1st-order Laplace approximate risk for a linear schedule."""
+        bias = self.compute_laplace_approx_bias(T, t, m_exponent, m_constant)
+        variance = self.compute_laplace_approx_variance(T, t, m_exponent, m_constant)       
         return bias + variance
+    
+
+    def compute_laplace_approx_biases_and_variances_different_finals(self, T_values, m_exponent, m_constant, K=1):
+        """Compute both bias and variance components separately for analysis. For different t=K*T"""
+        assert 0<= K <= 1, "K should be between 0 and 1 to ensure t=K*T is a valid step within the schedule."
+        
+        biases, variances = {}, {}
+        for T in T_values:
+            self.schedule.steps = T  # Update schedule for new T
+            #self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)  # Re-optimize eta for new T
+            t = int(K * (T-1))
+            bias = self.compute_laplace_approx_bias(T, t, m_exponent, m_constant)
+            variance = self.compute_laplace_approx_variance(T, t, m_exponent, m_constant)       
+            biases[T] = bias
+            variances[T] = variance
+        return biases, variances
 
 #End of class definitions
+
 
 def compute_different_sigmas(T, model, x0, Delta, beta, sigmas, schedule_type="constant"):
     """Compute Laplace risk approximation for different noise levels."""
@@ -205,3 +217,4 @@ def compute_different_sigmas(T, model, x0, Delta, beta, sigmas, schedule_type="c
         print(f"Laplace risk approximation for sigma={sigma} computed.")
         
     return results, real_approx
+

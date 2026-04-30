@@ -10,11 +10,21 @@ class BaseSGD(ABC):
         self.model = model
         self.x0 = x0.reshape(-1, 1)
         self._schedule = schedule
-        self.T = schedule._steps
         self.L = self.model.Lambda_vals
         self.risks = {}
         self.losses = None
   
+    @property
+    def T(self):
+        return self._schedule._steps
+    
+    @property
+    def schedule(self):
+        return self._schedule
+    
+    @schedule.setter
+    def schedule(self, schedule: ScheduleBase):
+        self._schedule = schedule
 
     def get_schedule(self):
         return self._schedule.schedule
@@ -96,7 +106,7 @@ class SGD(BaseSGD):
         
         return np.array(risks)
     
-    def approx_all_theoretical_risks(self) -> np.ndarray:
+    def approx_all_theoretical_risks(self, separate_bias_variance=False) -> np.ndarray:
         diff_0 = self.x0 - self.model.x_star
         
         Sigma_0 = np.outer(diff_0, diff_0)
@@ -108,6 +118,9 @@ class SGD(BaseSGD):
 
         v_t = np.zeros(self.model.dim)
         risks = []
+        biases = []
+        variances = []
+
         
         for t in range(self.T):
             # Le calcul du risque reste identique
@@ -116,6 +129,8 @@ class SGD(BaseSGD):
             risk = 0.5 * (bias_part + variance_part)
             self.risks[t] = risk
             risks.append(risk)
+            biases.append(0.5 * bias_part)
+            variances.append(0.5 * variance_part)
             
             lr = self.get_step(t)
             
@@ -131,8 +146,11 @@ class SGD(BaseSGD):
             # Fully decoupled update (each dimension i evolves independently)
             m_t = diag_part * m_t + (lr**2) * approx_term_mt
             v_t = diag_part * v_t + (lr**2) * approx_term_vt + (lr**2 * self.model.sigma**2) * self.L
-        
-        return np.array(risks)
+
+        if separate_bias_variance:
+            return np.array(biases), np.array(variances)
+        else:
+            return np.array(risks)
 
 
 
