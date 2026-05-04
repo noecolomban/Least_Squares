@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 from src.least_squares import PowerLawRegression, compute_power_x0
 
 from src.asymptotics import (
-    Laplace_constant,  
-    Laplace_linear,
+    LaplaceConstant,  
+    LaplaceLinear,
     compute_different_sigmas,
 )
 
@@ -27,7 +27,7 @@ x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 T = 10000
 
-laplace_analysis = Laplace_constant(model, x0, T)
+laplace_analysis = LaplaceConstant(model, x0, T)
 
 #print("Computing True approximation...")
 #laplace_result = laplace_analysis.compute_true_approx_risk()
@@ -90,8 +90,8 @@ import matplotlib.pyplot as plt
 from src.least_squares import PowerLawRegression, compute_power_x0
 
 from src.asymptotics import (
-    Laplace_constant,  
-    Laplace_linear,
+    LaplaceConstant,  
+    LaplaceLinear,
     compute_different_sigmas,
 
 )
@@ -108,12 +108,12 @@ diff0 = Delta * np.array([1/i**beta for i in range(1, dim+1)])
 #beta/2 so that m0i = Delta/i^beta, which is the form we want
 x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
-
-K = 0.9
-T_values = [10, 100, 500, 1000, 5000, 10000]#,  50000, 100000]
+optimize = False
+K = 1
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000]#, 50000, 100000]
 
 # %%
-new_linear_laplace_analysis = Laplace_linear(model, x0, T_max=max(T_values))
+new_linear_laplace_analysis = LaplaceLinear(model, x0, T_max=max(T_values), optimize=optimize, base_lr=0.001)
 bias, variance = new_linear_laplace_analysis.compute_laplace_approx_biases_and_variances_different_finals(
     T_values=T_values,
     m_exponent=beta,
@@ -126,25 +126,25 @@ diagonal_biases, diagonal_variances = new_linear_laplace_analysis.compute_true_a
 
 plt.plot(T_values, bias.values(), label="Laplace Bias", marker='o')
 plt.plot(T_values, np.array(list(diagonal_biases.values())), label="Diagonal Bias", marker='o')
-plt.title(f"Bias components of Laplace approximation vs Diagonal approximation for linear schedule \n sigma={sigma}, beta={beta}")
+plt.title(f"Bias components of Laplace approximation vs Diagonal approximation for linear schedule \n sigma={sigma}, beta={beta}, Tmax={max(T_values)}, K=t/T={K}")
 plt.xscale("log")
 plt.yscale("log")
 plt.xlabel("T")
 plt.ylabel("Risk approximation")
 plt.legend()
 plt.grid()
-plt.savefig(f"images/laplace_vs_diagonal_bias_linear_schedule_T={max(T_values)}_sigma={sigma}_different_finals.pdf")
+plt.savefig(f"images/laplace_vs_diagonal_bias_linear_schedule_T={max(T_values)}_sigma={sigma}_K={K}_different_finals.pdf")
 plt.show()
 # %%
 plt.plot(T_values, np.array(list(variance.values())), label="Laplace Variance", marker='o')
-plt.plot(T_values,  np.array(list(diagonal_variances.values())), label="Diagonal Variance", marker='o')
-plt.title(f"Variance components of Laplace approximation vs Diagonal approximation for linear schedule \n sigma={sigma}, beta={beta}")
+plt.plot(T_values, np.array(list(diagonal_variances.values())), label="Diagonal Variance", marker='o')
+plt.title(f"Variance components of Laplace approximation vs Diagonal approximation for linear schedule \n sigma={sigma}, beta={beta}, Tmax={max(T_values)}, K=t/T={K}")
 plt.xscale("log")
 plt.yscale("log")
 plt.xlabel("T")
 plt.ylabel("Risk approximation")
 plt.legend()
 plt.grid()
-plt.savefig(f"images/laplace_vs_diagonal_variance_linear_schedule_T={max(T_values)}_sigma={sigma}_different_finals.pdf")
+plt.savefig(f"images/laplace_vs_diagonal_variance_linear_schedule_T={max(T_values)}_sigma={sigma}_K={K}_different_finals.pdf")
 plt.show()
 # %%
