@@ -256,7 +256,7 @@ class LaplaceLinear(AsymptoticsAnalysis):
         L=1.
         assert alpha != 2, "Laplace not valid for eta=2."
 
-        prefix1 = (self.model.sigma**2 * eta**2) / (2 * alpha)
+        prefix1 = (L**2 * self.model.sigma**2 * eta**2) / (2 * alpha)
         prefix2 = T*alpha/(alpha-2)
 
         term1 = gamma(1.5)/(eta*L*T)**1.5
