@@ -1,3 +1,5 @@
+from matplotlib.pylab import seed
+
 from src.risk_computations import RiskComputations
 from src.least_squares import PowerLawRegression
 from src.SGD import SGD
@@ -200,8 +202,9 @@ class LaplaceLinear(AsymptoticsAnalysis):
             #self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)  # Re-optimize eta for new T
             t = int(K * (T-1))
             bias = self.compute_laplace_approx_bias(T, t, m_exponent, m_constant)
-            variance = self.compute_laplace_approx_variance(T, t, m_exponent, m_constant)       
+            #variance = self.compute_laplace_approx_variance(T, t, m_exponent, m_constant)       
             #variance = self.compute_laplace_approx_variance_partial(T, t)
+            variance = self.compute_laplace_approx_variance_double_integral(T, K)
             biases[T] = bias
             variances[T] = variance
         return biases, variances
@@ -243,6 +246,23 @@ class LaplaceLinear(AsymptoticsAnalysis):
         
         return variance
 
+
+    def compute_laplace_approx_variance_double_integral(self, T, K,  *args, **kwargs):
+        """Compute the variance term for the linear schedule using a double integral approach."""
+        assert K==1, "Double integral variance computation currently only implemented for K=1 (t=T)."
+        
+        eta = self.schedule.get_base_lr()
+        alpha = self.model.exponent
+        L=1.
+        assert alpha != 2, "Laplace not valid for eta=2."
+
+        prefix1 = (self.model.sigma**2 * eta**2) / (2 * alpha)
+        prefix2 = T*alpha/(alpha-2)
+
+        term1 = gamma(1.5)/(eta*L*T)**1.5
+        term2 = - gamma((2*alpha-1)/alpha) / (eta*L*T)**((2*alpha-1)/alpha)
+
+        return prefix1 * prefix2 * (term1 + term2)
 #End of class definitions
 
 

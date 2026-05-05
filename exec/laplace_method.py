@@ -99,7 +99,7 @@ from src.asymptotics import (
 # %%
 dim = 100
 sigma = 0.5
-exponent = 2
+exponent = 3 #alpha
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
 
 Delta = 1
@@ -110,7 +110,7 @@ x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 optimize = False
 K = 1
-T_values = [10, 100, 500, 1000, 5000, 10000, 20000]#, 50000, 100000]
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000, 300000]
 
 # %%
 new_linear_laplace_analysis = LaplaceLinear(model, x0, T_max=max(T_values), optimize=optimize, base_lr=0.001)
@@ -136,8 +136,10 @@ plt.grid()
 plt.savefig(f"images/laplace_vs_diagonal_bias_linear_schedule_T={max(T_values)}_sigma={sigma}_K={K}_different_finals.pdf")
 plt.show()
 # %%
+
 plt.plot(T_values, np.array(list(variance.values())), label="Laplace Variance", marker='o')
 plt.plot(T_values, np.array(list(diagonal_variances.values())), label="Diagonal Variance", marker='o')
+#plt.plot(T_values, c*0.002/np.array(T_values)**0.5, label="1/sqrt T", linestyle="dashed", marker='o')
 plt.title(f"Variance components of Laplace approximation vs Diagonal approximation for linear schedule \n sigma={sigma}, beta={beta}, Tmax={max(T_values)}, K=t/T={K}")
 plt.xscale("log")
 plt.yscale("log")
@@ -148,3 +150,4 @@ plt.grid()
 plt.savefig(f"images/laplace_vs_diagonal_variance_linear_schedule_T={max(T_values)}_sigma={sigma}_K={K}_different_finals.pdf")
 plt.show()
 # %%
+print(variance)
