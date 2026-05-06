@@ -1,3 +1,5 @@
+from sys import prefix
+
 from matplotlib.pylab import seed
 
 from src.risk_computations import RiskComputations
@@ -5,8 +7,13 @@ from src.least_squares import PowerLawRegression
 from src.SGD import SGD
 import numpy as np
 from scheduled import WSDSchedule, ConstantSchedule
-from scipy.special import gamma, gammainc
+from scipy.special import gamma, gammainc, digamma
 from abc import ABC, abstractmethod
+
+
+def gamma_prime(x):
+    """Compute the derivative of the gamma function using the digamma function."""
+    return gamma(x) * digamma(x)
 
 
 class AsymptoticsAnalysis(ABC):
@@ -254,15 +261,27 @@ class LaplaceLinear(AsymptoticsAnalysis):
         eta = self.schedule.get_base_lr()
         alpha = self.model.exponent
         L=1.
-        assert alpha != 2, "Laplace not valid for eta=2."
+        
+        if alpha != 2:
 
-        prefix1 = (L**2 * self.model.sigma**2 * eta**2) / (2 * alpha)
-        prefix2 = T*alpha/(alpha-2)
+            prefix1 = (L**2 * self.model.sigma**2 * eta**2) / (2 * alpha)
+            prefix2 = T*alpha/(alpha-2)
 
-        term1 = gamma(1.5)/(eta*L*T)**1.5
-        term2 = - gamma((2*alpha-1)/alpha) / (eta*L*T)**((2*alpha-1)/alpha)
+            term1 = gamma(1.5)/(eta*L*T)**1.5
+            term2 = - gamma((2*alpha-1)/alpha) / (eta*L*T)**((2*alpha-1)/alpha)
 
-        return prefix1 * prefix2 * (term1 + term2)
+            variance = prefix1 * prefix2 * (term1 + term2)
+
+        else:
+
+            prefix1 = (L**2 * self.model.sigma**2 * eta**2) / (2 * alpha)
+            prefix2 = T / (2*(eta*L*T)**1.5)
+
+            term1 = gamma(1.5)*np.log(eta*L*T)
+            term2 = - gamma_prime(1.5)
+
+            variance = prefix1 * prefix2 * (term1 + term2)
+        return variance
 #End of class definitions
 
 
