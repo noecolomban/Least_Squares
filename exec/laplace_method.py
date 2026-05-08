@@ -110,7 +110,7 @@ x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 optimize = False
 K = 1
-T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000]#, 200000, 300000]
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000, 300000]
 
 # %%
 new_linear_laplace_analysis = LaplaceLinear(model, x0, T_max=max(T_values), optimize=optimize, base_lr=0.001)
@@ -163,3 +163,4 @@ plt.legend()
 plt.grid()
 plt.savefig(f"images/laplace_vs_diagonal_total_risk_linear_schedule_T={max(T_values)}_sigma={sigma}_K={K}_different_finals.pdf")
 plt.show()
+# %%
