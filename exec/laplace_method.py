@@ -90,7 +90,7 @@ import matplotlib.pyplot as plt
 from src.least_squares import PowerLawRegression, compute_power_x0
 
 from src.asymptotics import (
-    LaplaceConstant,  
+    LaplaceConstant, 
     LaplaceLinear,
     compute_different_sigmas,
 
