@@ -14,6 +14,7 @@ src/least_squares.py
 src/risk_computations.py
 src/utils.py
 src/visualization.py
+tests/test_asymptotics.py
 tests/test_compute.py
 tests/test_least_squares.py
 tests/test_polynomial_schedule.py

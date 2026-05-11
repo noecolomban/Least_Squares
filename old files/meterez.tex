@@ -1,0 +1,197 @@
+
+\documentclass{article}
+
+\usepackage[french,english]{babel}\usepackage[utf8]{inputenc}
+\usepackage{johd}
+\usepackage[fleqn]{amsmath}
+\usepackage{stmaryrd}
+\usepackage{array}
+\usepackage{graphicx} 
+\usepackage{subcaption}
+\usepackage{amssymb}
+\usepackage{tgpagella}
+\usepackage{tcolorbox}
+\usepackage[T1]{fontenc}
+\setlength{\parindent}{0pt}
+\usepackage[colorinlistoftodos]{todonotes} 
+\usepackage{float}
+\newcommand{\noe}[1]{\todo[noline,size=\tiny,color=yellow!40,caption=Fl]{#1}}
+\newcommand{\aug}[1]{\todo[noline,size=\tiny,color=blue!12,caption=Aug]{#1}}
+
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+% Définition du style
+\lstset{
+    language=Python,              % Langage par défaut
+    basicstyle=\ttfamily\small,   % Police
+    keywordstyle=\color{blue},    % Couleur des mots-clés
+    commentstyle=\color{gray},    % Couleur des commentaires
+    stringstyle=\color{red},      % Couleur des chaînes
+    numbers=left,                 % Numéros de ligne à gauche
+    numberstyle=\tiny,
+    frame=single,                 % Cadre autour du code
+    breaklines=true               % Retour à la ligne automatique
+}
+
+
+\title{Least squares}
+
+\author{
+}
+\date{}
+\setcounter{tocdepth}{2}
+
+\newcommand{\cov}{\mathrm{Cov}}
+\newcommand{\var}{\mathrm{Var}}
+\newcommand{\diag}{\mathrm{Diag}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\tr}{\mathrm{Tr}}
+
+\begin{document}
+\maketitle
+
+
+
+%\tableofcontents
+
+
+\section{Meterez}
+
+% \[
+% \prod_{t=1}^T(1-\eta_t\lambda_i) \leq \exp({\sum_{t=1}^T-\eta_t\lambda_i})
+% \]
+
+% \[
+% \prod_{t=1}^T(1-\eta_tH) \preceq \exp(-H\sum_{t=1}^T \eta_t)
+% \]
+
+\subsection{Setup}
+
+
+\begin{itemize}
+
+\item[$-$] $x \sim \mathcal N(0,H)$
+
+\item[$-$] $y=x^\top w^* + \epsilon$ \quad with $\E[\epsilon]=0, \var(\epsilon) = \sigma^2$
+
+\item[$-$] $w_{t+1} = w_t - \eta_t x_t (x_t^\top w_t - y_t)$, \quad $y_t = x_t^\top w^\star +\epsilon_t$
+
+\item[$-$] $\mathcal R(w) =  \frac{1}{2}\E_{x,y}[(x^\top w - y)^2]$
+
+
+\item[$-$] $H = Q\Lambda Q^\top$ \quad and $\Lambda = \mathrm{Diag(\lambda)}$
+
+\item[$-$] $\Sigma_t = \E[(w_t - w^\star)(w_t - w^\star)^\top]$ and $M_t = Q \Sigma_t Q^\top$
+
+\end{itemize}
+
+\begin{align*}
+\E [x^\top (w - w^*) (w-w^*)^\top x]
+&= \E [x^\top (w - w^*) (w-w^*)^\top x]\\
+&= \E[\tr( (w - w^*) (w-w^*)^\top x x^\top)]\\
+&= \tr\left(\E[(w - w^*) (w-w^*)^\top] \E[xx^\top]\right)\\
+&=\langle \Sigma,H  \rangle\\
+&= \langle M,\Lambda  \rangle 
+\end{align*}
+
+Then \[\mathcal R(w_t) - \frac{1}{2}\sigma^2 = \frac{1}{2}\langle m_t, \lambda\rangle \qquad \text{with } m_t = \mathrm{diag}(M_t) \]
+
+\subsection{Page 21}
+
+$p\leq i$ 
+\[
+\exists c \in [p,i], \quad i^{1-\gamma} - p^{1-\gamma} = (1-\gamma)c^{-\gamma} (i-p)
+\]
+\[
+-(i^{1-\gamma} - p^{1-\gamma}) = - (1-\gamma)c^{-\gamma} (i-p) \leq  - (1-\gamma)i^{-\gamma} (i-p)
+\]
+So
+\[
+\sum_{p=0}^{i/2} \frac{1}{p^{2\gamma}} \exp(-\eta \lambda_k(i^{1-\gamma} - p^{1-\gamma})) \leq  \exp\left(-\frac{1}{2}\eta \lambda_k(1-\gamma)i^{1-\gamma}\right) \sum_{p=0}^{i/2} \frac{1}{p^{2\gamma}}
+\]
+
+Many $(1-\gamma)$ forgotten in the exponentials.
+
+
+\subsection{New Variance}
+
+\begin{align*}
+\sum_{p=0}^{T/2} \frac{1}{p^{2\gamma}} \exp\left(-\eta \lambda_k(T^{1-\gamma} - p^{1-\gamma})\right) 
+&\leq  \sum_{p=0}^{T/2} \frac{1}{p^{2\gamma}} \exp\left(-(1-\gamma)\eta \lambda_kT^{-\gamma}(T- p)\right) \\
+& \leq \sum_{p=0}^{T/2} \frac{1}{p^{2\gamma}} \exp\left(-\frac{1}{2}(1-\gamma)\eta \lambda_kT^{1-\gamma}\right) \\
+& \leq \exp\left(-\frac{1}{2}a_kT^{1-\gamma} \right) s_T(\gamma)
+\end{align*}
+
+With $a_k := (1-\gamma) \eta \lambda_k$ and $s_T(\gamma) = \left\{ \begin{array}{ll}
+T^{1-2\gamma}  & \gamma < 1/2\\
+\ln(T) & \gamma = 1/2\\
+1 & \gamma >1/2
+\end{array}\right.$
+
+
+\begin{align*}
+\sum_{p=T/2}^{T} \frac{1}{p^{2\gamma}} \exp\left(-\eta \lambda_k(T^{1-\gamma} - p^{1-\gamma})\right) 
+&\leq  \sum_{p=T/2}^{T} \frac{1}{p^{2\gamma}} \exp\left(-a_kT^{-\gamma}(T- p)\right) \\
+& \leq \left(\frac{T}{2}\right)^{-2\gamma} \exp\left(-a_kT^{1-\gamma}\right)\sum_{p=T/2}^{T}  \exp\left(a_kT^{-\gamma}p\right) \\
+& \leq \left(\frac{T}{2}\right)^{-2\gamma} \exp\left(-a_kT^{1-\gamma}\right) \left[ \exp\left(a_kT^{1-\gamma}\right) - \exp\left(\frac{1}{2}a_kT^{1-\gamma}\right) \right]\frac{1}{a_kT^{-\gamma}} \\
+& \leq \left(\frac{T}{2}\right)^{-2\gamma}  \left[ 1-\exp\left(-\frac{1}{2}a_kT^{1-\gamma}\right)  \right] \frac{1}{a_kT^{-\gamma}}\\
+& \leq T^{-\gamma} 2^{2\gamma} a_k^{-1} \left[ 1-\exp\left(-\frac{1}{2}a_kT^{1-\gamma}\right)  \right] 
+\end{align*}
+
+\[
+variance_{T+1} = \sum_k \eta \sigma^2 \lambda_k^2 \sum_{p=0}^T \frac{1}{p^{2\gamma}} \exp\left(-2\eta \lambda_k(T^{1-\gamma} - p^{1-\gamma})\right)  
+\]
+
+Therefore
+
+\begin{align*}
+ variance_{T+1} &\leq \sum_k \eta \sigma^2 \lambda_k^2 \left(  \exp\left(-\frac{1}{2}a_kT^{1-\gamma} \right) s_T(\gamma)+\frac{2^{2\gamma}T^{-\gamma}}{ a_k}\left[ 1-\exp\left(-\frac{1}{2}a_kT^{1-\gamma}\right)  \right]\right)\\
+& \lesssim \sum_k \eta \sigma^2\lambda_k^2 T^{1-2\gamma}\exp\left(-\frac{1}{2}(1-\gamma)\eta\lambda_k T^{1-\gamma}\right) + \sum_k  \frac{\sigma^2\lambda_k}{1-\gamma }  T^{-\gamma}
+\end{align*}
+
+\[
+bias_{T+1} = \sum_k m_{0k}\lambda_k \exp(-\eta \lambda_k T^{1-\gamma}) 
+\]
+
+
+Let $k^* := \max\{k;\lambda_k \geq \frac{\ln T}{\eta T^{1-\gamma}}\}$
+
+\begin{align*}
+bias_{T+1} &= \sum_{k\leq k^*} m_{0k}\lambda_k \exp(-\eta \lambda_k T^{1-\gamma}) + \sum_{k > k^*} m_{0k}\lambda_k \exp(-\eta \lambda_k T^{1-\gamma})\\
+&\leq T^{-1}\|w^*\|^2_{\Lambda_{1:k^*}} + \|w^*\|^2_{\Lambda_{k^*:\infty}}
+\end{align*}
+\begin{align*}
+variance_{T+1} &\lesssim \sum_k \eta \sigma^2\lambda_k^2 T^{1-2\gamma}\exp\left(-\frac{1}{2}(1-\gamma)\eta\lambda_k T^{1-\gamma}\right) + \sum_k  \frac{\sigma^2\lambda_k}{1-\gamma }  T^{-\gamma}\\
+&\lesssim \sum_k \frac{\sigma^2 \lambda_k}{1-\gamma} T^{-\gamma} + \sum_k  \frac{\sigma^2\lambda_k}{1-\gamma }  T^{-\gamma} & \text{since } xe^{-ax} \leq \frac{1}{ae}\\
+&\lesssim  \sum_k \frac{\sigma^2 \lambda_k}{1-\gamma} T^{-\gamma} 
+% &\lesssim \sum_{k\leq k^*} \eta \sigma^2\lambda_k^2 T^{1-2\gamma} T^{-\frac{1-\gamma}{2}}+ \sum_{k > k^*}  \sigma^2\lambda_k \ln(T) T^{-\gamma}  
+% + \sum_{k}  \frac{\sigma^2\lambda_k}{1-\gamma }  T^{-\gamma}
+\end{align*}
+
+So $\mathcal R(w_T) - \sigma^2/2 \lesssim T^{-1}\|w^*\|^2_{\Lambda_{1:k^*}} + \|w^*\|^2_{\Lambda_{k^*:\infty}} + \sum_k \frac{\sigma^2 \lambda_k}{1-\gamma} T^{-\gamma} $
+
+% If $w_0 = 0$
+% \[bias_{T+1} \leq \exp(-\eta \lambda_{\min}T^{1-\gamma})\|w^*\|^2_\Lambda \]
+% \[ variance_{T+1} \lesssim \sum_k \eta \sigma^2\lambda_k^2 T^{1-2\gamma} +  \sum_k  \frac{\sigma^2\lambda_k}{1-\gamma }  T^{-\gamma}
+% \]
+
+
+
+\section{Closed form}
+
+\[
+m_{t+1} = \prod_{i=1}^t \left[ (I - \eta_i \Lambda)^2 + \eta_i^2\lambda\lambda^\top \right] m_0 + \sum_{p=0}^t \eta_p^2 \sigma^2  \prod_{s=p+1}^t \left[ (I - \eta_s \Lambda)^2 + \eta_s^2\lambda\lambda^\top \right] \lambda
+\]
+
+Let $A(z) = (I - z \Lambda)^2 + z^2\lambda\lambda^\top$
+
+\newcommand{\risk}[1]{\mathcal R(w_#1) - \frac{1}{2}\sigma^2}
+
+\[
+2(\risk{{T+1}}) = \langle m_{T+1}, \lambda \rangle = \lambda^\top\prod_{t=1}^T A(\eta_t)m_0 + \lambda^\top\sum_{p=0}^T\eta_p^2 \sigma^2  \prod_{t=p+1}^T A(\eta_t) \lambda
+\]
+
+\end{document}
+

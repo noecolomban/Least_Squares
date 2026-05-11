@@ -1,0 +1,111 @@
+
+\documentclass{article}
+
+\usepackage[french,english]{babel}\usepackage[utf8]{inputenc}
+\usepackage{johd}
+\usepackage[fleqn]{amsmath}
+\usepackage{stmaryrd}
+\usepackage{array}
+\usepackage{graphicx} 
+\usepackage{subcaption}
+\usepackage{amssymb}
+\usepackage{tgpagella}
+\usepackage{tcolorbox}
+\usepackage[T1]{fontenc}
+\setlength{\parindent}{0pt}
+\usepackage[colorinlistoftodos]{todonotes} 
+\usepackage{float}
+\newcommand{\noe}[1]{\todo[noline,size=\tiny,color=yellow!40,caption=Fl]{#1}}
+\newcommand{\aug}[1]{\todo[noline,size=\tiny,color=blue!12,caption=Aug]{#1}}
+
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+% Définition du style
+\lstset{
+    language=Python,              % Langage par défaut
+    basicstyle=\ttfamily\small,   % Police
+    keywordstyle=\color{blue},    % Couleur des mots-clés
+    commentstyle=\color{gray},    % Couleur des commentaires
+    stringstyle=\color{red},      % Couleur des chaînes
+    numbers=left,                 % Numéros de ligne à gauche
+    numberstyle=\tiny,
+    frame=single,                 % Cadre autour du code
+    breaklines=true               % Retour à la ligne automatique
+}
+
+
+\title{Least squares}
+
+\author{
+}
+\date{}
+\setcounter{tocdepth}{2}
+
+\newcommand{\cov}{\mathrm{Cov}}
+\newcommand{\diag}{\mathrm{Diag}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\tr}{\mathrm{Tr}}
+
+\begin{document}
+\maketitle
+
+
+
+%\tableofcontents
+
+\section*{Closed form}
+
+$$f(x) = \dfrac{1}{n} \sum_{i=1}^n f_i(x), \qquad f_i(x) = \dfrac{1}{2}(x-x^*)^\top \phi_i \phi_i^\top (x-x_*)$$
+
+We can suppose 
+%$$\frac{1}{d}\phi_i \phi_i^\top = \mathrm{Diag}(0,\dots,0,\lambda_i,0,\dots,0), 
+$$H=\mathrm{Diag}(\lambda_1,...,\lambda_d)$$
+
+Then,
+
+$$x_{t+1} = x_t - \eta_t  \phi_{i_t} \phi_{i_t}^\top (x_t-x^*)$$
+
+$$x_T - x^* = \prod_{t=1}^T (I  - \eta_t \phi_{i_t} \phi_{i_t}^\top)(x_0 - x^*)$$
+
+$$f(x_T) - f^* = \frac{1}{2} \left(\prod_{t=1}^T (I  - \eta_t \phi_{i_t} \phi_{i_t}^\top)(x_0 - x^*)\right)^\top H \prod_{t=1}^T (I  - \eta_{t} \phi_{i_{t}} \phi_{i_{t}}^\top)(x_0-x^*)$$
+
+$$f(x_T) - f^* = \frac{1}{2} \left\| \prod_{t=1}^T (I  - \eta_{t} \phi_{i_{t}} \phi_{i_{t}}^\top)(x_0-x^*) \right\|^2_H$$
+%$$ = \frac{1}{2}(x_0 - x^*)^\top \mathrm{Diag}\left(\lambda_1\prod_{t=1}^T[1-\delta_{i_t,1}\eta_td\lambda_1]^2, \dots, \lambda_n\prod_{t=1}^T[1-\delta_{i_t,n}\eta_td\lambda_n]^2\right)(x_0-x^*)$$
+%$$= \frac{1}{2} \sum_{k=1}^d (x_0 - x^*)_k^2 \lambda_k \prod_{t=1}^T[1-\delta_{i_t,k}\eta_td\lambda_k]^2$$
+
+
+So
+%$$\mathbb Ef(x_T) - f* = \frac{1}{2} \sum_{k=1}^n (x_0 - x^*)_k^2 \lambda_k \prod_{t=1}^T\left[\frac{d-1}{d}+\frac{1}{d}(1-\eta_td\lambda_k)^2\right]$$
+
+\section{Noisy quadratics - Zhang et al.}
+
+If $\nabla f_i(x_t) = \nabla f(x_t) + \epsilon_t$,
+$$\epsilon_t = (\phi_i \phi_i^\top - H)(x_t-x^*)$$
+
+$$\mathbb E (\epsilon_t) = 0$$ 
+$$\cov (\epsilon_t) = \mathbb E [(\phi_{i_t} \phi_{i_t}^\top - H)(x_t-x^*)(x_t-x^*)^\top (\phi_{i_t} \phi_{i_t}^\top - H)] = \frac{1}{n}\sum_{i=1}^n (\phi_{i} \phi_{i}^\top - H)(x_t-x^*)(x_t-x^*)^\top (\phi_{i} \phi_{i}^\top - H)$$
+
+Supposition: $\cov(\epsilon_t) \preceq C$, and $H$ and $C$ are codiagonalizable. $C = \diag(c_1,...,c_n)$
+
+$x_{t+1}^{i} = x_t^i - \eta_t\lambda_i(x_t^i - x_*^i) + \epsilon^i$
+
+\begin{align*}
+\E [f_i(x_{t+1})-f_*] &= \frac{1}{2}\E [\lambda_i (x_{t+1}^i - x_*^i)^2]\\
+&= \frac{1}{2}\E [\lambda_i (x_{t}^i - \eta_t(\lambda_i(x_t^i - x_*^i) + \epsilon_t^i) - x_*^i)^2]\\
+&= \frac{1}{2}\E [\lambda_i ((1- \eta_t \lambda_i)(x_t^i - x_*^i) -\eta_t \epsilon_t ^i)^2]\\
+&= \frac{\lambda_i}{2}\E [(1-\eta_t\lambda_i)^2(x_{t}^i - x_*^i)^2 - 2\eta_t (1-\eta_t\lambda_i)(x_t^i-x_*^i)\epsilon^i_t + \eta_t^2(\epsilon_t^i)^2]\\
+&\leq\frac{\lambda_i(1-\eta_t\lambda_i)^2}{2} \E[(x_t^i - x_*^i)^2]  + \frac{\lambda_i}{2} (\eta_t^i)^2c_i\\ 
+\end{align*}
+
+
+\section{Lin}
+
+With $S = I$, we can do the same without sketching. There is no approximation error.
+
+
+
+
+\end{document}
+
