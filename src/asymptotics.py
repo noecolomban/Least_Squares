@@ -374,43 +374,58 @@ class LaplaceWSD(AsymptoticsAnalysis):
     def compute_laplace_approx_variance(self, T, K, *args, **kwargs):
         """
         Computes the Laplace approximation variance (V_t).
-        Assumes 'KT' in the mathematical formula corresponds to the variable 't'.
         """
+        assert K == 1, "Variance computation currently only implemented for K=1 (t=T) to ensure t is in the decay phase where the formula is valid."
+
         eta = self.schedule.get_base_lr()
         sigma_sq = self.model.sigma**2
         alpha = self.model.exponent
         
         L = 1.0         
         KT = int(K * (T-1))
+        T0 = self.T0(T)  # cooldown start step
         
+        # A_t (Variance accumulated before the decay phase) 
         # Calculate the exponent used in multiple places: (alpha - 1) / alpha
         exponent = (alpha - 1) / alpha
         gamma_val = gamma(exponent)
         
-        T0 = self.T0(T)  # cooldown start step
-        
         # Fraction: (KT - T0 - 1) * (2T - T0 - KT) / (T - T0)
         fraction_num = (KT - T0 - 1) * (2 * T - T0 - KT)
-        fraction_den = T - T0
+        fraction_den = max(1e-9, T - T0)  # Prevent division by zero
         common_fraction = fraction_num / fraction_den
         
         inner_base_1 = eta * L * common_fraction
         inner_base_2 = 2 * eta * L * (T0 + 1) + inner_base_1
         
         # Evaluate the terms inside the square brackets
-        term_1 = gamma_val / (inner_base_1 ** exponent)
+        term_1 = gamma_val / (inner_base_1 ** exponent) if inner_base_1 > 0 else 0
         term_2 = gamma_val / (inner_base_2 ** exponent)
         bracket_result = term_1 - term_2
         
-
         prefix = (L * eta * sigma_sq) / (4 * alpha)
+        A_t = prefix * bracket_result
         
-        # Additive: (L * eta * sigma^2 * (T - KT)) / (4 * (alpha - 1) * (T - T0))
-        additive_num = L * eta * sigma_sq * (T - KT)
-        additive_den = 4 * (alpha - 1) * (T - T0)
-        additive_term = additive_num / additive_den
+        # B_t (Variance accumulated during the decay phase)
+       
+        # Exact double integral correction for K=1 boundary
+        T_decay = T - T0
+        s = eta * L * T_decay
+        G = (L**2) * sigma_sq * (eta**2) * T_decay
         
-        variance = (prefix * bracket_result) + additive_term        
+        # Use a small tolerance for floating point comparison with 2.0
+        if abs(alpha - 2.0) < 1e-9:
+            term_1_b = gamma_prime(1.5)
+            term_2_b = np.log(s) * gamma(1.5)
+            B_t = - (G / (8 * (s ** 1.5))) * (term_1_b - term_2_b)
+        else:
+            term_1_b = gamma(1.5) / (s ** 1.5)
+            exp_alpha = (2 * alpha - 1) / alpha
+            term_2_b = gamma(exp_alpha) / (s ** exp_alpha)
+            B_t = (G / (2 * (alpha - 2))) * (term_1_b - term_2_b)
+        
+            
+        variance = A_t + B_t        
         return variance
     
     def compute_laplace_approx_biases_and_variances_different_finals(self, T_values, m_exponent, m_constant, K=1):

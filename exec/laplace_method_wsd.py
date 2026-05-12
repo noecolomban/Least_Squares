@@ -27,7 +27,7 @@ cooldown_len = 0.2
 
 optimize = False
 K = 1
-T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 40000, 60000, 100000, 200000]
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 40000, 60000, 100000, 150000]
 # %%
 wsd_laplace_analysis = LaplaceWSD(model, x0, T_max=max(T_values), optimize=optimize, base_lr=base_lr, cooldown_len=cooldown_len)
 bias, variance = wsd_laplace_analysis.compute_laplace_approx_biases_and_variances_different_finals(
@@ -65,7 +65,9 @@ plt.legend()
 plt.grid()
 plt.savefig(f"images/laplace_vs_diagonal_variance_wsd_schedule_T={max(T_values)}_sigma={sigma}_K={K}_different_finals.pdf")
 plt.show()
+
 # %%
+
 laplace_risk = {T: bias[T] + variance[T] for T in T_values}
 diagonal_risk = {T: diagonal_biases[T] + diagonal_variances[T] for T in T_values}
 plt.plot(T_values, laplace_risk.values(), label="Laplace Risk", marker='o')
