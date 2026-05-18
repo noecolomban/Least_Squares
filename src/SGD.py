@@ -154,6 +154,46 @@ class SGD(BaseSGD):
 
 
 
+    import numpy as np
+
+    def all_slock_risks(self) -> np.ndarray:
+        """
+        Calcule le risque théorique à chaque étape (Optimisé O(d))
+        """
+        diff_0 = self.x0 - self.model.x_star
+        Sigma_0 = np.outer(diff_0, diff_0)
+        
+        # Extract initial m_t
+        _, m_t_initial = self.model.compute_M_t(Sigma_0)
+        
+        # Since initial variance v_0 is zero, M_0 is just the flattened initial m_t.
+        M_t = m_t_initial.flatten()
+        
+        risks = []
+        irreducible_noise = self.model.sigma**2
+        lambda_vec = self.L  # Eigenvalues of H
+        
+        # Precompute the trace of Lambda (sum of eigenvalues)
+        tr_lambda = np.sum(lambda_vec) 
+        
+        for t in range(self.T):
+            # Risk is 0.5 * E[||x - x*||^2_H], which simplifies to 0.5 * dot(Lambda, M_t)
+            risk = 0.5 * np.dot(lambda_vec, M_t)
+            
+            self.risks[t] = risk
+            risks.append(risk)
+            
+            if t < self.T - 1:
+                lr = self.get_step(t)
+                
+                # Apply the update rule: 
+                # M_{t+1} = [I + (-2*eta + eta^2 * tr(Lambda)) * Lambda] * M_t + eta^2 * sigma^2 * Lambda
+                update_multiplier = 1.0 + (-2.0 * lr + (lr**2) * tr_lambda) * lambda_vec
+                
+                M_t = update_multiplier * M_t + (lr**2 * irreducible_noise) * lambda_vec
+                
+        return np.array(risks)
+
 class NoisyGD(BaseSGD):
     name = "Noisy GD"
 

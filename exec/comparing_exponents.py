@@ -10,7 +10,6 @@ import src.utils as utils
 from src.visualization import Visualization
 import copy
 from src.risk_computations import RiskComputations, diff_to_exponents, diff_sgd_vs_approx
-from src.utils import save_risk_results
 
 #%%
 

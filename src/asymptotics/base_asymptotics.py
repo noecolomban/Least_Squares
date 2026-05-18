@@ -74,3 +74,13 @@ class AsymptoticsAnalysis(ABC):
     def _update_schedule_for_T(self, T):
         """Abstract method to update the schedule for a new T"""
         pass
+
+    def optimize_eta(self, m_constant, T, K=1, eta_min=0.001, eta_max=1.0, num_points=200):
+        """Optimize eta for a specific T"""
+        risks = {}
+        for eta in np.linspace(eta_min, eta_max, num_points):
+            self._update_schedule_for_T(T, new_eta=eta)  # Update schedule with new eta
+            risks[eta] = self.compute_laplace_approx_risk_for_T(T, K*T, self.model.exponent, m_constant)  # Using m0[0] as a proxy for m_constant
+        optimal_eta = min(risks, key=risks.get)
+        return optimal_eta, risks[optimal_eta], risks
+

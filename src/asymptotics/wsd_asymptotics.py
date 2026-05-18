@@ -31,10 +31,12 @@ class LaplaceWSD(AsymptoticsAnalysis):
         if optimize:
             self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)
 
-    def _update_schedule_for_T(self, T):
+    def _update_schedule_for_T(self, T, new_eta=None):
         """Update the schedule and re-optimize eta for a new T."""
         assert self.schedule is not None, "Schedule must be initialized before updating."
-        self.schedule = WSDSchedule(steps=T, base_lr=self.schedule.get_base_lr(), cooldown_len=self.cooldown_len)
+        if new_eta is None:
+            new_eta = self.schedule.get_base_lr()
+        self.schedule = WSDSchedule(steps=T, base_lr=new_eta, cooldown_len=self.cooldown_len)
         self.sgd.schedule = self.schedule
         self.computations = RiskComputations(
             self.model, self.x0, [self.schedule], ["wsd"], sgd_class=SGD
@@ -43,7 +45,8 @@ class LaplaceWSD(AsymptoticsAnalysis):
     def compute_laplace_approx_risk_for_T(self, T, t, m_exponent, m_constant):
         """Setup for T, optimize eta, and compute 1st-order Laplace approximate risk for a linear schedule."""
         bias = self.compute_laplace_approx_bias(T, t, m_exponent, m_constant)
-        variance = self.compute_laplace_approx_variance(T, t, m_exponent, m_constant)       
+        K = t / T
+        variance = self.compute_laplace_approx_variance(T, K, m_exponent, m_constant)       
         return bias + variance
     
 
@@ -136,6 +139,7 @@ class LaplaceWSD(AsymptoticsAnalysis):
         variance = A_t + B_t        
         return variance
     
+
     def compute_laplace_approx_biases_and_variances_different_finals(self, T_values, m_exponent, m_constant, K=1):
         """Compute both bias and variance components separately for analysis. For different t=K*T"""
         assert 0<= K <= 1, "K should be between 0 and 1 to ensure t=K*T is a valid step within the schedule."
