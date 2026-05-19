@@ -31,6 +31,7 @@ class LaplaceWSD(AsymptoticsAnalysis):
         if optimize:
             self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)
 
+
     def _update_schedule_for_T(self, T, new_eta=None):
         """Update the schedule and re-optimize eta for a new T."""
         assert self.schedule is not None, "Schedule must be initialized before updating."

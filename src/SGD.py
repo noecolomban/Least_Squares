@@ -106,6 +106,8 @@ class SGD(BaseSGD):
         
         return np.array(risks)
     
+
+    
     def approx_all_theoretical_risks(self, separate_bias_variance=False) -> np.ndarray:
         diff_0 = self.x0 - self.model.x_star
         

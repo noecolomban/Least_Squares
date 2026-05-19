@@ -54,8 +54,8 @@ class LaplaceLinear(AsymptoticsAnalysis):
 
         return bias
     
-    def compute_laplace_approx_variance(self, T, t, *args, **kwargs):
-        """Compute the variance term for the linear schedule using the Laplace approximation at step t."""
+    def _compute_laplace_approx_variance_legacy(self, T, t):
+        """Legacy discrete-time variance approximation kept for reference."""
         eta = self.schedule.get_base_lr() 
         sigma_sq = self.model.sigma**2
         alpha = self.model.exponent
@@ -82,6 +82,15 @@ class LaplaceLinear(AsymptoticsAnalysis):
         variance = variance_prefix * (sum_terms_1st + last_term)
 
         return variance
+
+    def compute_laplace_approx_variance(self, T, t, *args, **kwargs):
+        """Main variance method: use the double-integral formula at final time only."""
+        t_int = int(t)
+        assert t_int >= T - 1, (
+            "compute_laplace_approx_variance now uses the double-integral formula, "
+            "implemented for final time only (t >= T-1)."
+        )
+        return self.compute_laplace_approx_variance_double_integral(T, K=1)
     
 
     def compute_laplace_approx_risk_for_T(self, T, t, m_exponent, m_constant):
@@ -92,8 +101,9 @@ class LaplaceLinear(AsymptoticsAnalysis):
     
 
     def compute_laplace_approx_biases_and_variances_different_finals(self, T_values, m_exponent, m_constant, K=1):
-        """Compute both bias and variance components separately for analysis. For different t=K*T"""
+        """Compute both bias and variance components using the double-integral variance (K=1 only)."""
         assert 0<= K <= 1, "K should be between 0 and 1 to ensure t=K*T is a valid step within the schedule."
+        assert K == 1, "This method now uses the double-integral variance only, which is implemented for K=1."
         
         biases, variances = {}, {}
         for T in T_values:
@@ -101,8 +111,6 @@ class LaplaceLinear(AsymptoticsAnalysis):
             #self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)  # Re-optimize eta for new T
             t = int(K * (T-1))
             bias = self.compute_laplace_approx_bias(T, t, m_exponent, m_constant)
-            #variance = self.compute_laplace_approx_variance(T, t, m_exponent, m_constant)       
-            #variance = self.compute_laplace_approx_variance_partial(T, t)
             variance = self.compute_laplace_approx_variance_double_integral(T, K)
             biases[T] = bias
             variances[T] = variance
