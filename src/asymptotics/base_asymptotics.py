@@ -48,6 +48,22 @@ class AsymptoticsAnalysis(ABC):
         L = self.model.Lambda_vals
         return (1 - eta * L)**2 + 2 * (eta**2) * (L**2)
 
+
+    def compute_true_biases_and_variances(self, T_values, K=1):
+        """Compute true biases and variances for different T values at t=K*T."""
+        assert 0<= K <= 1, "K should be between 0 and 1 to ensure t=K*T is a valid step within the schedule."
+
+        biases = {}
+        variances = {}
+        for T in T_values:
+            self._update_schedule_for_T(T)  # Update schedule for new T
+            list_bias, list_variance = self.sgd.compute_all_theoretical_risks(separate_bias_variance=True)
+            t = int(K * (T-1))  
+            biases[T] = list_bias[t]
+            variances[T] = list_variance[t]
+        return biases, variances
+
+
     def compute_true_risks(self, T_values):
         """Compute true risks for different T values."""
         risks = {}
@@ -115,8 +131,27 @@ class AsymptoticsAnalysis(ABC):
         for alpha in list_alphas:
             self._update_model_for_alpha(alpha)  # Update model for new alpha
             self._setup_for_T(T, optimize=False, base_lr=current_eta)  # Keep eta fixed across alpha values
-            laplace_var[alpha] = self.compute_laplace_approx_variance_double_integral(T, K)
+            laplace_var[alpha] = self.compute_laplace_approx_variance(T, T)
             bias, var = self.compute_true_approx_biases_and_variances([T], K=K)
             diagonal_var[alpha] = var[T]
 
         return laplace_var, diagonal_var
+    
+
+    def compare_variance_trajectories_different_alphas(self, T_values, list_alphas, m_constant, K=1):
+        """Compare Laplace variance trajectories for different alpha values at different T values and fixed eta."""
+        for alpha in list_alphas:
+            assert alpha > 1, "Alpha should be greater than 1 for the power law eigenvalue decay to ensure convergence of the risk."
+        assert K == 1, "This comparison now uses double-integral variance only, implemented for K=1."
+        laplace_variance = {}
+        diagonal_variance = {}
+        current_eta = self.schedule.get_base_lr() if self.schedule is not None else 0.01
+        for alpha in list_alphas:
+            self._update_model_for_alpha(alpha)  # Update model for new alpha
+            for T in T_values:
+                self._setup_for_T(T, optimize=False, base_lr=current_eta)  # Keep eta fixed across alpha values
+                laplace_variance[(alpha, T)] = self.compute_laplace_approx_variance(T, T)
+                bias, var = self.compute_true_approx_biases_and_variances([T], K=K)
+                diagonal_variance[(alpha, T)] = var[T]
+
+        return laplace_variance, diagonal_variance

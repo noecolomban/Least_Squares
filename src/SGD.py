@@ -61,7 +61,7 @@ class BaseSGD(ABC):
         return self.risks[t]
 
     @abstractmethod
-    def compute_all_theoretical_risks(self) -> np.ndarray:
+    def compute_all_theoretical_risks(self, separate_bias_variance=False) -> np.ndarray:
         pass
 
 
@@ -72,7 +72,7 @@ class SGD(BaseSGD):
     def __init__(self, model: LinearRegression, x0: np.ndarray, schedule: ScheduleBase):
         super().__init__(model, x0, schedule)
 
-    def compute_all_theoretical_risks(self) -> np.ndarray:
+    def compute_all_theoretical_risks(self, separate_bias_variance=False) -> np.ndarray:
         """
         Calcule le risque théorique à chaque étape (Optimisé O(d))
         """
@@ -84,15 +84,25 @@ class SGD(BaseSGD):
         
         v_t = np.zeros(self.model.dim) # variance
         risks = []
+
+        if separate_bias_variance:
+            biases = []
+            variances = []
+
         irreducible_noise = self.model.sigma**2
         lambda_vec = self.L  # eigenvalues of H
         
         for t in range(self.T):
-            risk = 0.5 * (np.dot(lambda_vec, m_t) + np.dot(lambda_vec, v_t))
+            bias_part = np.dot(lambda_vec, m_t)
+            variance_part = np.dot(lambda_vec, v_t)
+            risk = 0.5 * (bias_part + variance_part)
             
             self.risks[t] = risk
             risks.append(risk)
             
+            if separate_bias_variance:
+                biases.append(0.5 * bias_part)
+                variances.append(0.5 * variance_part)
             if t < self.T - 1:
                 lr = self.get_step(t)
                 diag_part = (1 - lr * lambda_vec)**2 + (lr * lambda_vec)**2
@@ -104,7 +114,10 @@ class SGD(BaseSGD):
                 m_t = diag_part * m_t + (lr**2) * lambda_vec * dot_m
                 v_t = diag_part * v_t + (lr**2) * lambda_vec * dot_v + (lr**2 * irreducible_noise) * lambda_vec
         
-        return np.array(risks)
+        if separate_bias_variance:
+            return np.array(biases), np.array(variances)
+        else:
+            return np.array(risks)
     
 
     
