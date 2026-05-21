@@ -97,7 +97,7 @@ from src.asymptotics import (
 
 )
 
-from src.utils import save_dict_to_json, read_dict_from_json
+from src.utils import save_dict_to_json, read_dict_from_json, constant_zeta_correction
 
 # %%
 dim = 1000
@@ -264,30 +264,82 @@ plt.plot(list_alphas, constants, label="Theoretical constant (zeta(a/2)*a/(a-2))
 
 
 #COMPARE DIFFERENT ALPHAS FOR VARIANCE TRAJECTORIES
-list_alphas = np.linspace(1.1, 3.0, 5)
-T_values = [1000, 5000, 10000, 20000, 30000, 50000, 100000, 200000]
+#list_alphas = [1.1, 1.3, 1.7, 1.9]  # Example alpha values to compare
+#list_alphas = [2]  # Example alpha values to compare
+list_alphas = [2.2, 2.8, 3.5, 4.5]  # Example alpha values to compare
+
+
+T_values = [1000, 2000, 5000, 10000, 20000, 30000, 50000, 100000]
 all_laplace_variances, all_diagonal_variances = new_linear_laplace_analysis.compare_variance_trajectories_different_alphas(T_values=T_values, list_alphas=list_alphas, m_constant=Delta, K=K)
 
-
 #%%
+colors = ['blue', 'orange', 'green', 'red', 'purple', 'brown']  # Colors for different alpha values
+
 plt.figure(figsize=(12, 6))
 for i, alpha in enumerate(list_alphas):
-    color = (i / len(list_alphas), 1 - i / len(list_alphas), np.random.rand())  # Color for each alpha
+    color = colors[i]  # Use predefined color for each alpha
     laplace_variance = [all_laplace_variances[(alpha, T)] for T in T_values]
     diagonal_variance = [all_diagonal_variances[(alpha, T)] for T in T_values]
     plt.plot(T_values, laplace_variance, label=f"Laplace Variance trajectory for alpha={alpha:.2f}", marker='o', color=color)
     plt.plot(T_values, diagonal_variance, label=f"Diagonal Variance trajectory for alpha={alpha:.2f}", marker='o', linestyle="dashed", color=color)
 plt.xscale("log")
-plt.yscale("log")
+#plt.yscale("log")
 plt.xlabel("T")
 plt.ylabel("Variance")
 plt.title("Variance Trajectories for Different Alphas")
 plt.legend()
 plt.grid()
-plt.savefig(f"images/variance_trajectories_different_alphas_linear_schedule_K={K}.pdf")
+plt.savefig(f"images/variance_trajectories_different_alphas_linear_schedule_alpha_max={max(list_alphas)}.pdf")
 plt.show()
+
+plt.figure(figsize=(12, 6))
+for i, alpha in enumerate(list_alphas):
+    color = colors[i]  # Use predefined color for each alpha
+    laplace_variance = [all_laplace_variances[(alpha, T)]*constant_zeta_correction(alpha) for T in T_values]
+    diagonal_variance = [all_diagonal_variances[(alpha, T)] for T in T_values]
+    plt.plot(T_values, laplace_variance, label=f"Corrected Laplace Variance for alpha={alpha:.2f}", marker='o', color=color)
+    plt.plot(T_values, diagonal_variance, label=f"Diagonal Variance trajectory for alpha={alpha:.2f}", marker='o', linestyle="dashed", color=color)
+plt.xscale("log")
+#plt.yscale("log")
+plt.xlabel("T")
+plt.ylabel("Variance")
+plt.title("Corrected Variance Trajectories for Different Alphas")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/corrected_variance_trajectories_different_alphas_linear_schedule_alpha_max={max(list_alphas)}.pdf")
+plt.show()
+
 # %%
-#from .utils import save_dict_to_json, read_dict_from_json
+#RATIOS
+
+plt.figure(figsize=(12, 6))
+for i, alpha in enumerate(list_alphas):
+    color = colors[i]  # Use predefined color for each alpha
+    ratio = [all_laplace_variances[(alpha, T)]/all_diagonal_variances[(alpha, T)] for T in T_values]
+    plt.plot(T_values, ratio, label=f"Variance Ratio (Laplace/Diagonal) for alpha={alpha:.2f}", marker='o', color=color)
+plt.xscale("log")
+plt.xlabel("T")
+plt.ylabel("Variance Ratio")
+plt.title("Variance Ratio Trajectories for Different Alphas")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/variance_ratio_trajectories_different_alphas_linear_schedule_dim={dim}_n_alphas={len(list_alphas)}_alpha_max={max(list_alphas)}.pdf")
+plt.show()
+
+#corrected ratio
+plt.figure(figsize=(12, 6))
+for i, alpha in enumerate(list_alphas):
+    color = colors[i]  # Use predefined color for each alpha
+    ratio = [all_laplace_variances[(alpha, T)]*constant_zeta_correction(alpha)/all_diagonal_variances[(alpha, T)] for T in T_values]
+    plt.plot(T_values, ratio, label=f"Corrected Variance Ratio (Laplace/Diagonal) for alpha={alpha:.2f}", marker='o', color=color)
+plt.xscale("log")
+plt.xlabel("T")
+plt.ylabel("Corrected Variance Ratio")
+plt.title("Corrected Variance Ratio Trajectories for Different Alphas")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/corrected_variance_ratio_trajectories_different_alphas_linear_schedule_dim={dim}_n_alphas={len(list_alphas)}_alpha_max={max(list_alphas)}.pdf")
+plt.show()
 
 # %%
 
