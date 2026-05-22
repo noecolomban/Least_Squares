@@ -1,4 +1,6 @@
 #%% WSD SCHEDULE
+from turtle import color
+
 import numpy as np
 import matplotlib.pyplot as plt
 from src.least_squares import PowerLawRegression, compute_power_x0
@@ -11,7 +13,7 @@ from src.asymptotics import (
 )
 
 # %%
-dim = 100
+dim = 1000
 sigma = 0.1
 exponent = 2
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
@@ -30,6 +32,8 @@ K = 1
 T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 40000, 60000, 100000, 125000, 150000]
 # %%
 wsd_laplace_analysis = LaplaceWSD(model, x0, T_max=max(T_values), optimize=optimize, base_lr=base_lr, cooldown_len=cooldown_len)
+
+#%%
 bias, variance = wsd_laplace_analysis.compute_laplace_approx_biases_and_variances_different_finals(
     T_values=T_values,
     m_exponent=beta,
@@ -87,5 +91,28 @@ plt.ylabel("Risk approximation")
 plt.legend()
 plt.grid()
 plt.savefig(f"images/laplace_vs_diagonal_total_risk_wsd_schedule_T_vs_true={max(T_values)}_sigma={sigma}_K={K}_different_finals.pdf")
+plt.show()
+# %%
+
+list_alphas = [1.5, 3, 5]
+
+laplace_variance_alpha, diagonal_variance_alpha = wsd_laplace_analysis.compare_variance_trajectories_different_alphas(T_values=T_values, list_alphas=list_alphas, m_constant=Delta, K=1)
+# %%
+ratios = {key: laplace_variance_alpha[key] / diagonal_variance_alpha[key] for key in laplace_variance_alpha.keys()}
+
+colors = plt.cm.viridis(np.linspace(0, 1, len(list_alphas)))
+for alpha in list_alphas:
+    color = colors[list_alphas.index(alpha)]
+    Y = np.array([ratios[(alpha, T)] for T in T_values])
+    plt.plot(T_values, Y, label=f"Variance Ratio (alpha={alpha})", marker='o', color=color)
+plt.xscale('log')
+plt.xlim(100, max(T_values))
+plt.xlabel("T (log scale)")
+plt.ylim(0, 3)
+plt.ylabel("Variance (log scale)") 
+plt.title("Variance Trajectories for Different Alphas (Laplace vs Diagonal) for WSD schedule")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/WSD_variance_trajectories_comparison_dim={dim}.pdf")
 plt.show()
 # %%

@@ -1,8 +1,10 @@
+#%%
+from cProfile import label
 import json
 import pathlib
 from scipy.special import zeta
 
-
+#%%
 def save_optimization_results(*args, **kwargs):
     pass
 
@@ -31,3 +33,24 @@ def constant_zeta_correction(alpha):
         return 1
     else:
         return zeta(alpha/2)*(alpha/2 - 1)
+    
+#%%
+if __name__ == "__main__":
+    # import numpy as np
+    # import matplotlib.pyplot as plt
+    # alphas = np.linspace(2, 5, 100)
+    # plt.plot(alphas, [constant_zeta_correction(alpha) for alpha in alphas], label="Zeta Correction")
+    # plt.plot(alphas, alphas/2, label="Alpha/2")
+    # plt.xlabel("Alpha")
+    # plt.ylabel("Zeta Correction")
+    # plt.title("Zeta Correction as a function of Alpha")
+    # plt.legend()
+    # plt.grid()
+    # plt.show()
+
+    print("2:", constant_zeta_correction(2))
+    print("2.5:", constant_zeta_correction(2.5))
+    print("3.5:", constant_zeta_correction(3.5))
+    print("4.5:", constant_zeta_correction(4.5))
+# %%
+

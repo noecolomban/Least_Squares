@@ -4,8 +4,8 @@ from src.least_squares import PowerLawRegression
 from src.SGD import SGD
 import numpy as np
 from scheduled import WSDSchedule
-from scipy.special import gamma
-
+from scipy.special import gamma, zeta
+from src.utils import constant_zeta_correction
 
 class LaplaceWSD(AsymptoticsAnalysis):
     """Class for analyzing the Laplace approximation specifically for the WSD schedule."""
@@ -83,12 +83,11 @@ class LaplaceWSD(AsymptoticsAnalysis):
         return bias
     
 
-    def compute_laplace_approx_variance(self, T, K, *args, **kwargs):
+    def compute_laplace_approx_variance(self, T, t, *args, corrected=True, **kwargs):
         """
         Computes the Laplace approximation variance (V_t).
         """
-        assert K == 1, "Variance computation currently only implemented for K=1 (t=T) to ensure t is in the decay phase where the formula is valid."
-
+        K=1
         eta = self.schedule.get_base_lr()
         sigma_sq = self.model.sigma**2
         alpha = self.model.exponent
@@ -136,8 +135,12 @@ class LaplaceWSD(AsymptoticsAnalysis):
             term_2_b = gamma(exp_alpha) / (s ** exp_alpha)
             B_t = (G / (2 * (alpha - 2))) * (term_1_b - term_2_b)
         
-            
-        variance = A_t + B_t        
+        if not corrected:
+            variance = A_t + B_t
+        else:
+            B_t_corrected = constant_zeta_correction(alpha)*B_t
+            A_t_corrected = A_t
+            variance = A_t_corrected + B_t_corrected        
         return variance
     
 
