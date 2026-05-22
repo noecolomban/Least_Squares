@@ -15,6 +15,7 @@ class LaplaceLinear(AsymptoticsAnalysis):
         print(f"Initializing Laplace_linear with T_max={T_max} for setup...")
         self._setup_for_T(T_max, optimize=optimize, base_lr=base_lr) 
 
+    
 
     def _setup_for_T(self, T, optimize=True, base_lr=0.01):
         """Configure the schedule and computations for a specific horizon T."""

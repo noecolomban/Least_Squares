@@ -1,8 +1,10 @@
-from src.least_squares import PowerLawRegression
+from src.least_squares import PowerLawRegression, compute_power_x0
 import numpy as np
 from scipy.special import gamma, digamma
 from abc import ABC, abstractmethod
 from src.risk_computations import RiskComputations
+from src.SGD import SGD
+
 
 def gamma_prime(x):
     """Compute the derivative of the gamma function using the digamma function."""
@@ -16,7 +18,50 @@ class AsymptoticsAnalysis(ABC):
         self.m0 = self._compute_m0()
         self.schedule = None
         self.sgd = None
-        self.computations = None | RiskComputations
+        self.computations: None | RiskComputations = None
+
+
+    def _sync_model_state(self):
+        """
+        Force SGD and RiskComputations to rebuild using the newly instantiated model and x0.
+        This prevents desynchronization when dimension or alpha changes.
+        """
+        if self.schedule is not None and self.computations is not None:
+            # Rebuild the SGD instance entirely
+            self.sgd = SGD(self.model, self.x0, self.schedule)
+            
+            # Rebuild the computations instance 
+            schedule_name = self.computations.schedules_names[0]
+            self.computations = RiskComputations(
+                self.model, self.x0, [self.schedule], [schedule_name], sgd_class=SGD
+            )
+
+
+    def _update_model_for_alpha(self, new_alpha, new_dim=None):
+        """Update the model's H matrix and related properties for a new alpha."""
+
+        dim = self.model.dim if new_dim is None else new_dim
+        sigma = self.model.sigma
+        n_samples = self.model.n_samples
+        
+        # 1. Create the new model (this generates a new random Q matrix and new Lambda_vals)
+        self.model = PowerLawRegression(dim=dim, sigma=sigma, n_samples=n_samples, exponent=new_alpha)
+        
+        # 2. Recompute x0 using the NEW Q matrix and the new beta (new_alpha/2)
+        self.x0 = compute_power_x0(dim, self.model.x_star.flatten(), self.model.Q, beta=new_alpha/2)
+        
+        # 3. Recompute m0 based on the newly aligned x0
+        self.m0 = self._compute_m0()
+        
+        # 4. Re-instantiate SGD and Computations to clear cached Lambda_vals and old x0
+        if self.schedule is not None:
+            self.sgd = SGD(self.model, self.x0, self.schedule)
+            if self.computations is not None:
+                schedule_name = self.computations.schedules_names[0]
+                self.computations = RiskComputations(
+                    self.model, self.x0, [self.schedule], [schedule_name], sgd_class=SGD
+                )
+
 
     @property
     def alpha(self):
@@ -27,14 +72,6 @@ class AsymptoticsAnalysis(ABC):
     def T(self):
         return self.schedule._steps
 
-    def _update_model_for_alpha(self, new_alpha):
-        """Update the model's H matrix and related properties for a new alpha."""
-        dim = self.model.dim
-        sigma = self.model.sigma
-        n_samples = self.model.n_samples
-        self.model = PowerLawRegression(dim=dim, sigma=sigma, n_samples=n_samples, exponent=new_alpha)
-        # Recompute m0 for the new model
-        self.m0 = self._compute_m0()
 
     def _compute_m0(self):
         """Compute m0 = diag(Q^T * (x0 - x*) * (x0 - x*)^T * Q)"""
@@ -76,15 +113,14 @@ class AsymptoticsAnalysis(ABC):
     def compute_true_approx_biases_and_variances(self, T_values, K=1):
         """Compute bias for different T values at t=K*T."""
         assert 0<= K <= 1, "K should be between 0 and 1 to ensure t=K*T is a valid step within the schedule."
-
-        biases = {}
-        variances = {}
+        
+        biases, variances = {}, {}
+        
         for T in T_values:
             self._update_schedule_for_T(T)  # Update schedule for new T
-            list_bias, list_variance = self.sgd.approx_all_theoretical_risks(separate_bias_variance=True)
-            t = int(K * (T-1))  
-            biases[T] = list_bias[t]
-            variances[T] = list_variance[t]
+            
+            print(f"Computing diagonal approximation for T={T}...")
+            biases[T], variances[T] = self.sgd.approx_final_theoretical_risk_variable(separate_bias_variance=True)
         return biases, variances
     
 
@@ -138,20 +174,24 @@ class AsymptoticsAnalysis(ABC):
         return laplace_var, diagonal_var
     
 
-    def compare_variance_trajectories_different_alphas(self, T_values, list_alphas, m_constant, K=1):
+    def compare_variance_trajectories_different_alphas(self, T_values, list_alphas, *args, changing_dim=None, K=1, **kwargs):
         """Compare Laplace variance trajectories for different alpha values at different T values and fixed eta."""
-        for alpha in list_alphas:
-            assert alpha > 1, "Alpha should be greater than 1 for the power law eigenvalue decay to ensure convergence of the risk."
+        assert all(alpha > 1 for alpha in list_alphas), "Alpha should be greater than 1 for the power law eigenvalue decay."
         assert K == 1, "This comparison now uses double-integral variance only, implemented for K=1."
+          
         laplace_variance = {}
         diagonal_variance = {}
-        current_eta = self.schedule.get_base_lr() if self.schedule is not None else 0.01
-        for alpha in list_alphas:
-            self._update_model_for_alpha(alpha)  # Update model for new alpha
-            for T in T_values:
-                self._setup_for_T(T, optimize=False, base_lr=current_eta)  # Keep eta fixed across alpha values
+        current_eta = self.schedule.get_base_lr() if getattr(self, 'schedule', None) is not None else 0.01
+        
+        for T in T_values:
+            new_dim = int(changing_dim(T)) if changing_dim is not None else None
+            for alpha in list_alphas:
+                self._update_model_for_alpha(alpha, new_dim=new_dim) 
+                self._setup_for_T(T, optimize=False, base_lr=current_eta)  
+                print(f"Comparing variance trajectories for T={T} and alpha={alpha}...")
                 laplace_variance[(alpha, T)] = self.compute_laplace_approx_variance(T, T)
                 bias, var = self.compute_true_approx_biases_and_variances([T], K=K)
                 diagonal_variance[(alpha, T)] = var[T]
 
         return laplace_variance, diagonal_variance
+    
