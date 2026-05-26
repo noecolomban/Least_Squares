@@ -115,11 +115,11 @@ class AsymptoticsAnalysis(ABC):
         assert 0<= K <= 1, "K should be between 0 and 1 to ensure t=K*T is a valid step within the schedule."
         
         biases, variances = {}, {}
-        
+        dim = self.model.dim
         for T in T_values:
             self._update_schedule_for_T(T)  # Update schedule for new T
             
-            print(f"Computing diagonal approximation for T={T}...")
+            print(f"Computing diagonal approximation for T={T}, dim={dim}...")
             biases[T], variances[T] = self.sgd.approx_final_theoretical_risk_variable(separate_bias_variance=True)
         return biases, variances
     
@@ -184,8 +184,8 @@ class AsymptoticsAnalysis(ABC):
         current_eta = self.schedule.get_base_lr() if getattr(self, 'schedule', None) is not None else 0.01
         
         for T in T_values:
-            new_dim = int(changing_dim(T)) if changing_dim is not None else None
             for alpha in list_alphas:
+                new_dim = int(changing_dim(T, alpha)) if changing_dim is not None else None
                 self._update_model_for_alpha(alpha, new_dim=new_dim) 
                 self._setup_for_T(T, optimize=False, base_lr=current_eta)  
                 print(f"Comparing variance trajectories for T={T} and alpha={alpha}...")

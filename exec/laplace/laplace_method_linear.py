@@ -121,65 +121,6 @@ plt.grid()
 plt.savefig(f"images/variance_ratio_laplace_diagonal_linear_schedule_T={max(T_values)}_sigma={sigma}_K={K}_different_finals.pdf")
 plt.show()
 # %%
-#COMPARING DIFFERENT ALPHAS
-
-list_alphas = np.linspace(1.1, 3.0, 15)  # Example alpha values to compare
-T_values = [10000, 30000, 100000]  # Different T values to compare
-colors = ['blue', 'orange', 'green', 'red']  # Colors for different T values
-
-alpha_var, diagonal_var = {}, {}
-for T in T_values:
-    alpha_var[T], diagonal_var[T] = new_linear_laplace_analysis.compare_different_alphas_variance(T=T, list_alphas=list_alphas, m_constant=Delta, K=K)
-# %%
-# Plotting the variance for different alphas and T values
-from scipy.special import zeta
-a = np.array(list_alphas)
-constants = np.array([zeta(alpha/2)/(1/(alpha/2-1)) if alpha/2 > 1 else 1 for alpha in a])
-
-plt.figure(figsize=(12, 6))
-for i, T in enumerate(T_values):
-    color = colors[i]  # Use predefined color for each T
-    plt.plot(list_alphas, np.array(list(alpha_var[T].values())), label=f"Laplace Variance T={T}", marker='o', color=color)
-    plt.plot(list_alphas, np.array(list(diagonal_var[T].values())), label=f"Diagonal Variance T={T}", marker='o', color=color, linestyle="dashed")
-plt.title(f"Variance of Laplace approximation vs Diagonal approximation for linear schedule at K={K} \n for different alpha values, beta={beta}, Delta={Delta}, dim={dim}")
-#plt.yscale("log")
-plt.xlabel("Alpha")
-plt.ylabel("Variance approximation")
-plt.legend()
-plt.grid()
-plt.savefig(f"images/laplace_vs_diagonal_variance_linear_schedule_multipleT_K={K}_different_alphas_dim={dim}.pdf")
-plt.show()
-# %%
-plt.figure(figsize=(12, 6))
-for i, T in enumerate(T_values):
-    color = colors[i]  # Use predefined color for each T
-    ratio = {alpha: alpha_var[T][alpha]/diagonal_var[T][alpha] for alpha in list_alphas}
-    plt.plot(list_alphaplt.xlabel("T")
-s, np.array(list(ratio.values())), label=f"Variance Ratio (Laplace/Diagonal) T={T}", marker='o', color=color)
-plt.title(f"Variance Ratio of Laplace approximation to Diagonal approximation for linear schedule at K={K} \n for different alpha values, beta={beta}, Delta={Delta}, dim={dim}")
-plt.xlabel("Alpha")
-plt.ylabel("Variance Ratio")
-plt.legend()
-plt.grid()
-plt.savefig(f"images/variance_ratio_laplace_diagonal_linear_schedule_multipleT_K={K}_different_alphas_dim={dim}.pdf")
-plt.show()
-
-plt.figure(figsize=(12, 6))
-for i, T in enumerate(T_values):
-    color = colors[i]  # Use predefined color for each T
-    ratio = {alpha: alpha_var[T][alpha]/diagonal_var[T][alpha] for alpha in list_alphas}
-    plt.plot(list_alphas, np.array(list(ratio.values()))*constants, label=f"Variance Ratio (Laplace/Diagonal) T={T}", marker='o', color=color)
-plt.title(f"Corrected Variance Ratio of Laplace approximation to Diagonal approximation for linear schedule at K={K} \n for different alpha values, beta={beta}, Delta={Delta}, dim={dim}")
-plt.xlabel("Alpha")
-plt.ylabel("Variance Ratio")
-plt.legend()
-plt.grid()
-plt.savefig(f"images/corrected_variance_ratio_laplace_diagonal_linear_schedule_multipleT_K={K}_different_alphas_dim={dim}.pdf")
-plt.show()
-# %%
-save_dict_to_json(alpha_var, folder="laplace_linear", filename=f"alpha_var_dim={dim}.json")
-save_dict_to_json(diagonal_var, folder="laplace_linear", filename=f"diagonal_var_dim={dim}.json")
-# %%
 
 
 
@@ -187,12 +128,13 @@ save_dict_to_json(diagonal_var, folder="laplace_linear", filename=f"diagonal_var
 list_alphas = [1.1, 1.3, 1.7]  # Example alpha values to compare
 #list_alphas = [2]  # Example alpha values to compare
 #list_alphas = [2.2, 2.8, 3.5,]  # Example alpha values to compare
-#dim_text = f"dim=1000"  # Example dimension text for plot titles and filenames
-dim_text = f"T**0.7"  # Example dimension text for plot titles and filenames when dimension changes with T
 
-T_values = [1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000]  # Different T values to compare
-#changing_dim = lambda T: 500  # Example of changing dimension with T, adjust as needed
-changing_dim = lambda T: T**(0.7)  # Example of changing dimension with T, adjust as needed
+dim_text = f"0.01T"  # Example dimension text for plot titles and filenames when dimension changes with T
+
+T_values = [1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000]  # Different T values to compare
+
+changing_dim = lambda T, alpha: 0.01 * T  # Example of changing dimension with T, adjust as needed
+
 all_laplace_variances, all_diagonal_variances = new_linear_laplace_analysis.compare_variance_trajectories_different_alphas(T_values=T_values, list_alphas=list_alphas, changing_dim=changing_dim, K=K)  # Example of changing dimension with T, adjust as needed
 
 #%%
@@ -232,6 +174,7 @@ plt.grid()
 plt.savefig(f"images/corrected_variance_trajectories_different_alphas_linear_schedule_alpha_max={max(list_alphas)}_{dim_text}_Tmax={max(T_values)}.pdf")
 plt.show()
 
+
 # %%
 #RATIOS
 
@@ -259,9 +202,7 @@ for i, alpha in enumerate(list_alphas):
 plt.xscale("log")
 plt.xlabel("T")
 
-plt.ylim(0.7, 1)
-plt.yscale("log")
-plt.xlim(10000, max(T_values))
+#plt.yscale("log")
 
 plt.ylabel("Corrected Variance Ratio")
 plt.title(f"Corrected Variance Ratio Trajectories for Different Alphas, dim={dim_text}")
@@ -269,6 +210,24 @@ plt.legend()
 plt.grid()
 plt.savefig(f"images/corrected_variance_ratio_trajectories_different_alphas_linear_schedule_alpha_max={max(list_alphas)}_{dim_text}_Tmax={max(T_values)}.pdf")
 plt.show()
+
+# %%
+#DIFFERENCE
+plt.figure(figsize=(12, 6))
+for i, alpha in enumerate(list_alphas):
+    color = colors[i]  # Use predefined color for each alpha
+    difference = [(all_laplace_variances[(alpha, T)] - all_diagonal_variances[(alpha, T)]) for T in T_values]
+    plt.plot(T_values, difference, label=f"Variance Difference (Laplace - Diagonal) for alpha={alpha:.2f}", marker='o', color=color)
+plt.xscale("log")
+#plt.yscale("log")
+plt.xlabel("T")
+plt.ylabel("Variance Difference")
+plt.title(f"Variance Difference Trajectories for Different Alphas, dim={dim_text}")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/variance_difference_trajectories_different_alphas_linear_schedule_alpha_max={max(list_alphas)}_{dim_text}_Tmax={max(T_values)}.pdf")
+plt.show()
+
 
 # %%
 all_laplace_variances_str = {str(key): value for key, value in all_laplace_variances.items()}
