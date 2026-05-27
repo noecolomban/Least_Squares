@@ -91,8 +91,8 @@ class LaplaceLinear(AsymptoticsAnalysis):
             "compute_laplace_approx_variance now uses the double-integral formula, "
             "implemented for final time only (t >= T-1)."
         )
-        return self.compute_laplace_approx_variance_double_integral(T, K=1)
-        #return self.compute_laplace_approx_variance_dim(T)
+        #return self.compute_laplace_approx_variance_double_integral(T, K=1)
+        return self.compute_laplace_approx_variance_dim(T)
 
     def compute_laplace_approx_risk_for_T(self, T, t, m_exponent, m_constant):
         """Setup for T, optimize eta, and compute 1st-order Laplace approximate risk for a linear schedule."""
@@ -187,41 +187,52 @@ class LaplaceLinear(AsymptoticsAnalysis):
 
     def compute_laplace_approx_variance_dim(self, T):
         """
-        Compute the exact variance term using both lower and upper incomplete 
-        gamma functions to strictly account for dynamic dimensions where d grows with T.
+        Compute the asymptotic two-term expansion for the variance based on:
+        V_t * (L^2 * sigma^2 * eta^2) / (2 * alpha) approx ...
         """
         eta = self.schedule.get_base_lr()
         alpha = self.model.exponent
         L = 1.0
+        sigma = self.model.sigma
         dim = self.model.dim
+        tau = T/dim**alpha
 
-        assert alpha < 2, "Valid for alpha < 2 due to eigenvalue decay."
 
-        # X_max represents the exact integration boundary where the max() condition flips
-        x_max = eta * L * T * (dim ** (-alpha))
+        if alpha == 2:
+            prefix1 = (L**2 * self.model.sigma**2 * eta**2) / (2 * alpha)
+            prefix2 = T / (2*(eta*L*T)**1.5)
 
-        # Gamma parameters
-        s1 = 1.5
-        s2 = 2.0 - (1.0 / alpha)
+            term1 = gamma(1.5)*np.log(eta*L*T)
+            term2 = - gamma_prime(1.5)
 
-        # Scipy's gammainc (lower) and gammaincc (upper) are regularized.
-        # We multiply by gamma(s) to recover the exact mathematical functions.
-        gamma_full_s1 = gamma(s1)
-        gamma_lower_s1 = gammainc(s1, x_max) * gamma_full_s1
-        gamma_upper_s2 = gammaincc(s2, x_max) * gamma(s2)
+            variance = prefix1 * prefix2 * (term1 + term2)
+        else:
+                
+            # Pre-factor (alpha / (alpha - 2))
+            pre_factor = alpha / (alpha - 2.0)
 
-        # Constants
-        prefix1 = (L**2 * self.model.sigma**2 * eta**2) / (2 * alpha)
-        prefix3 = alpha / (2 - alpha)
+            gamma_term = gamma(1.5) * gammainc(1.5, eta*L*tau) / (eta*L*tau)**1.5
 
-        # Term A: The main peak evaluated up to the boundary (sign flipped for prefix3)
-        term_A_numerator = (dim**(1 - alpha/2) * gamma_lower_s1) - gamma_full_s1
-        term_A = (term_A_numerator / (eta * L)**1.5) * (T**(-0.5))
+            # First term: (tau^(3/2) / T^(1/2)) * pre_factor * integral
+            term_1 = (tau**(1.5) / np.sqrt(T)) * pre_factor * gamma_term
 
-        # Term B: The strictly non-negligible tail integral
-        term_B = (gamma_upper_s2 / (eta * L)**s2) * (T**(1/alpha - 1.0))
+            # Second term components
+            # Part A: Gamma(3/2) / (eta * L)^(3/2)
+            part_a = gamma(1.5) / ((eta * L)**1.5)
+            
+            # Part B: (1/T)^((alpha - 2) / 2alpha) * Gamma((alpha - 2)/2alpha + 3/2) / (eta * L)^((alpha - 2)/2alpha + 3/2)
+            exponent_b = (alpha - 2.0) / (2.0 * alpha)
+            power_b = exponent_b + 1.5
+            part_b = (1.0 / T)**exponent_b * gamma(power_b) / ((eta * L)**power_b)
 
-        return prefix1 * prefix3 * (term_A + term_B)
+            # Combined second term
+            term_2 = (1.0 / np.sqrt(T)) * pre_factor * (part_a - part_b)
+
+        
+            # Result assembly: V_t = ((L**2 * sigma**2 * eta**2) / (2.0 * alpha))  * (term_1 + term_2)
+            variance = ((L**2 * sigma**2 * eta**2) / (2.0 * alpha)) * (term_1 + term_2)
+        
+        return variance
 
 
 

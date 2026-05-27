@@ -1,5 +1,4 @@
 #%%
-from cProfile import label
 import json
 import pathlib
 import ast
@@ -63,31 +62,39 @@ def read_dict_from_json(folder: str, filename: str) -> dict:
 
 
 #
-def constant_zeta_correction(alpha):
+def constant_zeta_correction(alpha, d=10):
     assert alpha > 1, "Alpha should be greater than 1."
-    if alpha <= 2:
+    
+    if abs(alpha - 2.0) < 1e-5:
         return 1
+        
+    elif alpha < 2:
+        # integral_factor = (1 - d**(1 - alpha/2)) / (1/2 - 1/alpha)
+        
+        # discrete_factor = zeta(alpha/2) + (d**(1 - alpha/2)) / (1 - alpha/2)
+        
+        # return discrete_factor / integral_factor
+
+        return 1
+        
     else:
-        return zeta(alpha/2)*(alpha/2 - 1)
+        return zeta(alpha/2) * (1/2 - 1/alpha)
     
 #%%
 if __name__ == "__main__":
-    # import numpy as np
-    # import matplotlib.pyplot as plt
-    # alphas = np.linspace(2, 5, 100)
-    # plt.plot(alphas, [constant_zeta_correction(alpha) for alpha in alphas], label="Zeta Correction")
-    # plt.plot(alphas, alphas/2, label="Alpha/2")
-    # plt.xlabel("Alpha")
-    # plt.ylabel("Zeta Correction")
-    # plt.title("Zeta Correction as a function of Alpha")
-    # plt.legend()
-    # plt.grid()
-    # plt.show()
+    import numpy as np
+    import matplotlib.pyplot as plt
+    alphas = np.linspace(1.1, 5, 100)
+    plt.plot(alphas, [constant_zeta_correction(alpha, d=1000) for alpha in alphas], label="Zeta Correction")
+    plt.plot(alphas, alphas/2, label="Alpha/2")
+    plt.xlabel("Alpha")
+    plt.ylabel("Zeta Correction")
+    plt.title("Zeta Correction as a function of Alpha")
+    plt.legend()
+    plt.grid()
+    
+       
 
-    print("2:", constant_zeta_correction(2))
-    print("2.5:", constant_zeta_correction(2.5))
-    print("3.5:", constant_zeta_correction(3.5))
-    print("4.5:", constant_zeta_correction(4.5))
 # %%
 
 
