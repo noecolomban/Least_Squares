@@ -5,7 +5,7 @@ from src.least_squares import PowerLawRegression
 from src.SGD import SGD
 import numpy as np
 from scheduled import WSDSchedule
-from scipy.special import gamma, gammainc, gammaincc
+from scipy.special import gamma, gammainc, gammaincc, zeta
 
 
 
@@ -92,7 +92,8 @@ class LaplaceLinear(AsymptoticsAnalysis):
             "implemented for final time only (t >= T-1)."
         )
         #return self.compute_laplace_approx_variance_double_integral(T, K=1)
-        return self.compute_laplace_approx_variance_dim(T)
+        #return self.compute_laplace_approx_variance_dim(T)
+        return self.compute_laplace_approx_variance_o_T(T)
 
     def compute_laplace_approx_risk_for_T(self, T, t, m_exponent, m_constant):
         """Setup for T, optimize eta, and compute 1st-order Laplace approximate risk for a linear schedule."""
@@ -185,57 +186,39 @@ class LaplaceLinear(AsymptoticsAnalysis):
         return variance
     
 
-    def compute_laplace_approx_variance_dim(self, T):
+    def compute_laplace_approx_variance_o_T(self, T):
         """
-        Compute the asymptotic two-term expansion for the variance based on:
-        V_t * (L^2 * sigma^2 * eta^2) / (2 * alpha) approx ...
+        Compute the asymptotic variance expansion in the regime where d^alpha = o(T).
+        The continuous transient term collapses entirely.
         """
         eta = self.schedule.get_base_lr()
         alpha = self.model.exponent
         L = 1.0
         sigma = self.model.sigma
         dim = self.model.dim
-        tau = T/dim**alpha
-
-
-        if alpha == 2:
-            prefix1 = (L**2 * self.model.sigma**2 * eta**2) / (2 * alpha)
-            prefix2 = T / (2*(eta*L*T)**1.5)
-
-            term1 = gamma(1.5)*np.log(eta*L*T)
-            term2 = - gamma_prime(1.5)
-
-            variance = prefix1 * prefix2 * (term1 + term2)
-        else:
-                
-            # Pre-factor (alpha / (alpha - 2))
-            pre_factor = alpha / (alpha - 2.0)
-
-            gamma_term = gamma(1.5) * gammainc(1.5, eta*L*tau) / (eta*L*tau)**1.5
-
-            # First term: (tau^(3/2) / T^(1/2)) * pre_factor * integral
-            term_1 = (tau**(1.5) / np.sqrt(T)) * pre_factor * gamma_term
-
-            # Second term components
-            # Part A: Gamma(3/2) / (eta * L)^(3/2)
-            part_a = gamma(1.5) / ((eta * L)**1.5)
-            
-            # Part B: (1/T)^((alpha - 2) / 2alpha) * Gamma((alpha - 2)/2alpha + 3/2) / (eta * L)^((alpha - 2)/2alpha + 3/2)
-            exponent_b = (alpha - 2.0) / (2.0 * alpha)
-            power_b = exponent_b + 1.5
-            part_b = (1.0 / T)**exponent_b * gamma(power_b) / ((eta * L)**power_b)
-
-            # Combined second term
-            term_2 = (1.0 / np.sqrt(T)) * pre_factor * (part_a - part_b)
-
         
-            # Result assembly: V_t = ((L**2 * sigma**2 * eta**2) / (2.0 * alpha))  * (term_1 + term_2)
-            variance = ((L**2 * sigma**2 * eta**2) / (2.0 * alpha)) * (term_1 + term_2)
+        # Global scaling prefactors
+        variance_scale = (L**2 * sigma**2 * eta**2) / (2.0 * alpha)
+        time_prefactor = 1.0 / (2.0 * np.sqrt(T) * (eta * L)**1.5)
+        
+        if alpha == 2:
+            # For alpha = 2, the discrete sum is the harmonic series
+            euler_gamma = np.euler_gamma # Approx 0.5772...
+            harmonic_term = np.log(dim) + euler_gamma
+            
+            bracket_term = gamma(1.5) * harmonic_term
+            
+        else:
+            # For alpha < 2, the discrete sum uses the generalized harmonic number approximation
+            riemann_term = zeta(alpha / 2.0)
+            finite_size_term = (dim**(1.0 - alpha / 2.0)) / (1.0 - alpha / 2.0)
+            
+            bracket_term = gamma(1.5) * (riemann_term + finite_size_term)
+            
+        # Final variance computation applies to both cases
+        variance = variance_scale * time_prefactor * bracket_term
         
         return variance
-
-
-
 
 #End of class definitions
 
