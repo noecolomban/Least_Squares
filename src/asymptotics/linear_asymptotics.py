@@ -93,7 +93,8 @@ class LaplaceLinear(AsymptoticsAnalysis):
         )
         #return self.compute_laplace_approx_variance_double_integral(T, K=1)
         #return self.compute_laplace_approx_variance_dim(T)
-        return self.compute_laplace_approx_variance_o_T(T)
+        return self.compute_laplace_approx_variance_d_alpha(T)
+        #return self.compute_laplace_approx_variance_o_T(T)
 
     def compute_laplace_approx_risk_for_T(self, T, t, m_exponent, m_constant):
         """Setup for T, optimize eta, and compute 1st-order Laplace approximate risk for a linear schedule."""
@@ -220,6 +221,56 @@ class LaplaceLinear(AsymptoticsAnalysis):
         
         return variance
 
+
+
+    def compute_laplace_approx_variance_d_alpha(self, T):
+            """
+            Compute the asymptotic variance expansion in the regime where d^alpha = o(T).
+            The continuous transient term collapses entirely.
+            """
+            eta = self.schedule.get_base_lr()
+            alpha = self.model.exponent
+            L = 1.0
+            sigma = self.model.sigma
+            dim = self.model.dim  # Extracted but unused in this specific equation
+            tau = T / (dim**alpha)
+
+            # Prevent division by zero based on the condition alpha != 2
+            if alpha == 2.0:
+                raise ValueError("This variance formula is only valid for alpha != 2")
+
+
+            # Precompute the isolated prefactor to get V_t
+            prefactor = (L**2 * sigma**2 * eta**2) / (2 * alpha)
+            
+            # Precompute recurring factors
+            alpha_factor = alpha / (alpha - 2)
+            gamma_3_2 = gamma(1.5)
+            
+            # Compute the non-regularized lower incomplete gamma function
+            # scipy's gammainc gives P(a,x) = gamma(a,x) / Gamma(a), so we multiply back
+            lower_inc_gamma = gammainc(1.5, eta * L * tau) * gamma_3_2
+            
+            # Calculate the first main term inside the expansion
+            term1 = (tau**1.5) * alpha_factor * lower_inc_gamma * (T**(-0.5))
+            #CORRECTION?
+            #term1 = 0
+
+
+            # Calculate exponents and components for the second main term
+            exp_power = (alpha - 2) / (2 * alpha)
+            
+            part_a = gamma_3_2 / ((eta * L)**1.5)
+            
+            part_b_num = ((1.0 / T)**exp_power) * gamma(exp_power + 1.5)
+            part_b_den = (eta * L)**(exp_power + 1.5)
+            
+            term2 = alpha_factor * (part_a - (part_b_num / part_b_den)) * (T**(-0.5))
+            
+            # Combine everything to isolate the final variance (V_t)
+            v_t = prefactor * (term1 + term2)
+            
+            return v_t
 #End of class definitions
 
 

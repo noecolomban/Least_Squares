@@ -4,6 +4,12 @@ from scipy.special import gamma, digamma
 from abc import ABC, abstractmethod
 from src.risk_computations import RiskComputations
 from src.SGD import SGD
+from enum import StrEnum
+
+
+class Mode(StrEnum):
+    DIAGONAL = "diagonal"
+    TRUE = "true"
 
 
 def gamma_prime(x):
@@ -168,13 +174,14 @@ class AsymptoticsAnalysis(ABC):
             self._update_model_for_alpha(alpha)  # Update model for new alpha
             self._setup_for_T(T, optimize=False, base_lr=current_eta)  # Keep eta fixed across alpha values
             laplace_var[alpha] = self.compute_laplace_approx_variance(T, T)
-            bias, var = self.compute_true_approx_biases_and_variances([T], K=K)
+            #bias, var = self.compute_true_approx_biases_and_variances([T], K=K)
+            bias, var = self.compute_true_biases_and_variances([T], K=K)
             diagonal_var[alpha] = var[T]
 
         return laplace_var, diagonal_var
     
 
-    def compare_variance_trajectories_different_alphas(self, T_values, list_alphas, *args, changing_dim=None, K=1, **kwargs):
+    def compare_variance_trajectories_different_alphas(self, T_values, list_alphas, *args, changing_dim=None, K=1, mode: Mode = Mode.DIAGONAL, **kwargs):
         """Compare Laplace variance trajectories for different alpha values at different T values and fixed eta."""
         assert all(alpha > 1 for alpha in list_alphas), "Alpha should be greater than 1 for the power law eigenvalue decay."
         assert K == 1, "This comparison now uses double-integral variance only, implemented for K=1."
@@ -190,8 +197,14 @@ class AsymptoticsAnalysis(ABC):
                 self._setup_for_T(T, optimize=False, base_lr=current_eta)  
                 print(f"Comparing variance trajectories for T={T} and alpha={alpha}...")
                 laplace_variance[(alpha, T)] = self.compute_laplace_approx_variance(T, T)
-                bias, var = self.compute_true_approx_biases_and_variances([T], K=K)
-                diagonal_variance[(alpha, T)] = var[T]
+                if mode == Mode.DIAGONAL:
+                    bias, var = self.compute_true_approx_biases_and_variances([T], K=K)
+                    diagonal_variance[(alpha, T)] = var[T]
+                elif mode == Mode.TRUE:
+                    bias, var = self.compute_true_biases_and_variances([T], K=K)
+                    diagonal_variance[(alpha, T)] = var[T]
+                else:
+                    raise ValueError(f"Unsupported mode: {mode}. Use Mode.DIAGONAL or Mode.TRUE.")
 
         return laplace_variance, diagonal_variance
     
