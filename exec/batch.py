@@ -131,3 +131,140 @@ plt.grid(True, which="both", ls="-", alpha=0.2)
 plt.savefig(f"images/BATCH_variance_iso_budget_{mode}.pdf")
 plt.show()
 # %%
+#BIAS
+
+# %% Bias trajectories vs T for different alphas and batch sizes
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000]
+alphas = [1.1, 1.5, 1.9]
+batchs = [1, 10, 50]
+
+all_laplace_biases = {}
+all_diagonal_biases = {}
+
+for b in batchs:
+    new_linear_laplace_analysis._update_model_for_batch(b)
+    laplace_bias_alpha = {}
+    diagonal_bias_alpha = {}
+
+    current_eta = (
+        new_linear_laplace_analysis.schedule.get_base_lr()
+        if getattr(new_linear_laplace_analysis, "schedule", None) is not None
+        else 0.01
+    )
+
+    for T in T_values:
+        for alpha in alphas:
+            new_linear_laplace_analysis._update_model_for_alpha(alpha)
+            new_linear_laplace_analysis._setup_for_T(T, optimize=False, base_lr=current_eta)
+            t = T - 1
+
+            laplace_bias_alpha[(alpha, T)] = new_linear_laplace_analysis.compute_laplace_approx_bias(
+                T=T,
+                t=t,
+                m_exponent=beta,
+                m_constant=Delta,
+            )
+
+            diagonal_bias, _ = new_linear_laplace_analysis.compute_true_approx_biases_and_variances(
+                [T],
+                K=1,
+            )
+            diagonal_bias_alpha[(alpha, T)] = diagonal_bias[T]
+
+    all_laplace_biases[b] = laplace_bias_alpha
+    all_diagonal_biases[b] = diagonal_bias_alpha
+
+for i, alpha in enumerate(alphas):
+    plt.figure(figsize=(10, 6))
+    for j, b in enumerate(batchs):
+        color = colors[j % len(colors)]
+        style = styles[i % len(styles)]
+        marker = markers[i % len(markers)]
+        plt.plot(
+            T_values,
+            [all_laplace_biases[b][(alpha, T)] for T in T_values],
+            label=f"Laplace alpha={alpha}, batch={b}",
+            color=color,
+            linestyle=style,
+            marker=marker,
+        )
+        plt.plot(
+            T_values,
+            [all_diagonal_biases[b][(alpha, T)] for T in T_values],
+            label=f"Diagonal alpha={alpha}, batch={b}",
+            color=color,
+            linestyle="--",
+            marker=marker,
+            alpha=0.8,
+        )
+
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.xlabel("T")
+    plt.ylabel("Bias")
+    plt.title(f"Bias trajectories for alpha={alpha} and different batch sizes")
+    plt.legend()
+    plt.grid(True, which="both", ls="-", alpha=0.2)
+    plt.savefig(f"images/bias_trajectories_alpha_{alpha}.pdf")
+    plt.show()
+
+
+# %% Plot bias as a function of compute budget (B*T) - LAPLACE ONLY
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000]
+alphas = [1.1, 1.5, 1.9]
+batchs = [1, 10, 50]
+
+all_laplace_biases = {}
+for b in batchs:
+    new_linear_laplace_analysis._update_model_for_batch(b)
+    laplace_bias_alpha = {}
+
+    current_eta = (
+        new_linear_laplace_analysis.schedule.get_base_lr()
+        if getattr(new_linear_laplace_analysis, "schedule", None) is not None
+        else 0.01
+    )
+
+    for T in T_values:
+        for alpha in alphas:
+            new_linear_laplace_analysis._update_model_for_alpha(alpha)
+            new_linear_laplace_analysis._setup_for_T(T, optimize=False, base_lr=current_eta)
+            t = T - 1
+
+            laplace_bias_alpha[(alpha, T)] = new_linear_laplace_analysis.compute_laplace_approx_bias(
+                T=T,
+                t=t,
+                m_exponent=beta,
+                m_constant=Delta,
+            )
+
+    all_laplace_biases[b] = laplace_bias_alpha
+
+plt.figure(figsize=(10, 6))
+for i, alpha in enumerate(alphas):
+    for j, b in enumerate(batchs):
+        color = colors[j % len(colors)]
+        style = styles[i % len(styles)]
+        marker = markers[i % len(markers)]
+        budget_values = [b * T for T in T_values]
+        laplace_biases = [all_laplace_biases[b][(alpha, T)] for T in T_values]
+
+        plt.plot(
+            budget_values,
+            laplace_biases,
+            label=f"Laplace: alpha={alpha}, batch={b}",
+            color=color,
+            marker=marker,
+            linestyle=style,
+        )
+
+plt.xscale("log")
+plt.yscale("log")
+plt.xlabel("Total compute budget (B * T)")
+plt.ylabel("Bias")
+plt.title("Batch Scaling Efficiency for bias (Laplace) across alphas and batch sizes")
+plt.legend()
+plt.grid(True, which="both", ls="-", alpha=0.2)
+plt.savefig("images/BATCH_bias_iso_budget_laplace.pdf")
+plt.show()
+
