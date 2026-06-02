@@ -33,7 +33,7 @@ optimize = False
 K = 1
 T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000]
 # %%
-new_linear_laplace_analysis = LaplaceLinear(model, x0, T_max=max(T_values), optimize=optimize, base_lr=0.1)
+new_linear_laplace_analysis = LaplaceLinear(model, x0, T_max=max(T_values), optimize=optimize, base_lr=0.001)
 
 #%%
 bias, variance = new_linear_laplace_analysis.compute_laplace_approx_biases_and_variances_different_finals(
@@ -130,21 +130,22 @@ list_alphas = [1.1, 1.3, 1.7]  # Example alpha values to compare
 #list_alphas = [2.2, 2.8, 3.5,]  # Example alpha values to compare
 #list_alphas = [1.1, 1.3, 1.7, 2.2, 2.8, 3.5]  # Example alpha values to compare
 
-dim_text = f"Tb300**1balpha-1"  # Example dimension text for plot titles and filenames when dimension changes with T
-dim_text = 100
+dim_text = f"Ts50**1balpha+0.2"  # Example dimension text for plot titles and filenames when dimension changes with T
+#dim_text = ""
 
-T_values = [1000, 2000, 5000, 10000, 20000, 50000]  # Different T values to compare
+T_values = [100, 1000, 2000, 5000, 10000, 20000, 50000]  # Different T values to compare
 
-changing_dim = lambda T, alpha: (T/500)**(1/(alpha-0.5))  # Example function for changing dimension with T and alpha, adjust as needed
+changing_dim = lambda T, alpha: (T/50)**(1/(alpha+0.2))  # Example function for changing dimension with T and alpha, adjust as needed
 #changing_dim = lambda T, alpha: 100  # Example function for changing dimension with T and alpha, adjust as needed
 
+mode = Mode.TRUE  # Choose between Mode.TRUE for exact variance and Mode.DIAGONAL for diagonal approximation
 
 all_laplace_variances, all_diagonal_variances = new_linear_laplace_analysis.compare_variance_trajectories_different_alphas(
     T_values=T_values, 
     list_alphas=list_alphas, 
     changing_dim=changing_dim,
     K=K,
-    mode=Mode.DIAGONAL 
+    mode=mode
   )  
     #Mode.DIAGONAL:  diagonal approximation
     #Mode.TRUE: exact variance
@@ -158,7 +159,7 @@ for i, alpha in enumerate(list_alphas):
     laplace_variance = [all_laplace_variances[(alpha, T)] for T in T_values]
     diagonal_variance = [all_diagonal_variances[(alpha, T)] for T in T_values]
     plt.plot(T_values, laplace_variance, label=f"Laplace Variance trajectory for alpha={alpha:.2f}", marker='o', color=color)
-    plt.plot(T_values, diagonal_variance, label=f"Diagonal Variance trajectory for alpha={alpha:.2f}", marker='o', linestyle="dashed", color=color)
+    plt.plot(T_values, diagonal_variance, label=f"{mode.name} Variance trajectory for alpha={alpha:.2f}", marker='o', linestyle="dashed", color=color)
 plt.xscale("log")
 #plt.yscale("log")
 plt.xlabel("T")
@@ -175,7 +176,7 @@ for i, alpha in enumerate(list_alphas):
     laplace_variance = [constant_zeta_correction(alpha, d=changing_dim(T, alpha)) *all_laplace_variances[(alpha, T)]  for T in T_values]
     diagonal_variance = [all_diagonal_variances[(alpha, T)]  for T in T_values]
     plt.plot(T_values, laplace_variance, label=f"Corrected Laplace Variance for alpha={alpha:.2f}", marker='o', color=color)
-    plt.plot(T_values, diagonal_variance, label=f"Diagonal Variance trajectory for alpha={alpha:.2f}", marker='o', linestyle="dashed", color=color)
+    plt.plot(T_values, diagonal_variance, label=f"{mode.name} Variance trajectory for alpha={alpha:.2f}", marker='o', linestyle="dashed", color=color)
 plt.xscale("log")
 plt.yscale("log")
 plt.xlabel("T")
@@ -195,13 +196,14 @@ plt.figure(figsize=(12, 6))
 for i, alpha in enumerate(list_alphas):
     color = colors[i]  # Use predefined color for each alpha
     ratio = [ all_laplace_variances[(alpha, T)]/all_diagonal_variances[(alpha, T)] for T in T_values]
-    plt.plot(T_values, ratio, label=f"Variance Ratio (Laplace/Diagonal) for alpha={alpha:.2f}", marker='o', color=color)
+    plt.plot(T_values, ratio, label=f"Variance Ratio (Laplace/{mode.name}) for alpha={alpha:.2f}", marker='o', color=color)
 
     #plt.plot(T_values, [1/alpha for _ in T_values], color=color, label=f"zeta(alpha/2) for alpha={alpha:.2f}", linestyle="dashed")
 
 plt.xscale("log")
+plt.xlim(1000, max(T_values))  # Assuming the ratio is less than 1, adjust as needed
 #plt.yscale("log")
-
+plt.ylim(0, 1.3)  # Assuming the ratio is less than 1, adjust as needed
 
 plt.xlabel("T")
 plt.ylabel("Variance Ratio")
@@ -211,17 +213,21 @@ plt.grid()
 plt.savefig(f"images/variance_ratio_trajectories_different_alphas_linear_schedule_alpha_max={max(list_alphas)}_{dim_text}_Tmax={max(T_values)}.pdf")
 plt.show()
 
+
 #corrected ratio
+#%%
+
 plt.figure(figsize=(12, 6))
 for i, alpha in enumerate(list_alphas):
     color = colors[i]  # Use predefined color for each alpha
-    ratio = [all_laplace_variances[(alpha, T)]*constant_zeta_correction(alpha, d=changing_dim(T, alpha))/all_diagonal_variances[(alpha, T)] for T in T_values]
-    plt.plot(T_values, ratio, label=f"Corrected Variance Ratio (Laplace/Diagonal) for alpha={alpha:.2f}", marker='o', color=color)
+    ratio = [constant_zeta_correction(alpha, d=changing_dim(T, alpha)) * all_laplace_variances[(alpha, T)]/all_diagonal_variances[(alpha, T)] for T in T_values]
+    #if some are non definded, replace them by 0.0
+    plt.plot(T_values, ratio, label=f"Corrected Variance Ratio (Laplace/{mode.name}) for alpha={alpha:.2f}", marker='o', color=color)
 
 plt.xscale("log")
 plt.xlabel("T")
-
-#plt.ylim(0, 1.3)  # Assuming the ratio is less than 1, adjust as needed
+plt.xlim(1000, max(T_values))  # Assuming the ratio is less than 1, adjust as needed
+plt.ylim(0, 1.3)  # Assuming the ratio is less than 1, adjust as needed
 
 plt.ylabel("Corrected Variance Ratio")
 plt.title(f"Corrected Variance Ratio Trajectories for Different Alphas, dim={dim_text}")

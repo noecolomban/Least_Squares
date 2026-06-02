@@ -235,6 +235,8 @@ class LaplaceLinear(AsymptoticsAnalysis):
             dim = self.model.dim  # Extracted but unused in this specific equation
             tau = T / (dim**alpha)
 
+            print(f"tau = {tau}, alpha = {alpha}, eta = {eta}, T = {T}, dim = {dim}")
+
             # Prevent division by zero based on the condition alpha != 2
             if alpha == 2.0:
                 raise ValueError("This variance formula is only valid for alpha != 2")
@@ -252,9 +254,9 @@ class LaplaceLinear(AsymptoticsAnalysis):
             lower_inc_gamma = gammainc(1.5, eta * L * tau) * gamma_3_2
             
             # Calculate the first main term inside the expansion
-            term1 = (tau**1.5) * alpha_factor * lower_inc_gamma * (T**(-0.5))
+            #term1 = (tau**1.5) * alpha_factor * lower_inc_gamma * (T**(-0.5))
             #CORRECTION?
-            #term1 = 0
+            term1 = 0
 
 
             # Calculate exponents and components for the second main term
@@ -289,3 +291,5 @@ def compute_different_sigmas(T, model, x0, Delta, beta, sigmas, schedule_type="c
         print(f"Laplace risk approximation for sigma={sigma} computed.")
         
     return results, real_approx
+
+

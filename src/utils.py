@@ -77,7 +77,9 @@ def constant_zeta_correction(alpha, d=10):
         pure_integral = (d**(1 - alpha/2) - 1) / (1 - alpha/2)
         discrete_sum = zeta(alpha/2) + (d**(1 - alpha/2)) / (1 - alpha/2)
         
-        return discrete_sum / pure_integral
+        ratio = discrete_sum / pure_integral if pure_integral != 0 else 1.0  # Avoid division by zero, return 1.0 if integral is zero
+
+        return ratio
     
 #%%
 if __name__ == "__main__":

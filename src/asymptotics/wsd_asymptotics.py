@@ -139,7 +139,8 @@ class LaplaceWSD(AsymptoticsAnalysis):
             variance = A_t + B_t
         else:
             B_t_corrected = constant_zeta_correction(alpha)*B_t
-            A_t_corrected = A_t
+            #A_t_corrected = constant_zeta_correction(2*alpha)*A_t
+            A_t_corrected = A_t  # No correction for A_t, only for B_t, as the double integral correction is more relevant for the decay phase variance
             variance = A_t_corrected + B_t_corrected        
         return variance
     
