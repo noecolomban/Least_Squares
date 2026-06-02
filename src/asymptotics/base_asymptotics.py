@@ -10,6 +10,7 @@ from enum import StrEnum
 class Mode(StrEnum):
     DIAGONAL = "diagonal"
     TRUE = "true"
+    LAPLACE_ONLY = "laplace"
 
 
 def gamma_prime(x):
@@ -25,7 +26,7 @@ class AsymptoticsAnalysis(ABC):
         self.schedule = None
         self.sgd = None
         self.computations: None | RiskComputations = None
-
+        self.batch = 1
 
     def _sync_model_state(self):
         """
@@ -68,6 +69,16 @@ class AsymptoticsAnalysis(ABC):
                     self.model, self.x0, [self.schedule], [schedule_name], sgd_class=SGD
                 )
 
+
+    def _update_model_for_batch(self, new_batch):
+        """Update the model's n_samples for a new batch size."""
+        old_sigma_global = self.model.sigma * np.sqrt(self.batch)  # Compute the global noise level before changing batch
+        self.batch = new_batch
+        self.model.n_samples = new_batch
+        # Adjust sigma to keep the global noise level constant  
+        new_sigma = old_sigma_global / np.sqrt(new_batch)
+        self.model.sigma = new_sigma
+        print(f"Updated model for batch size {new_batch}. Adjusted sigma from {old_sigma_global} to {new_sigma}.")
 
     @property
     def alpha(self):
@@ -203,8 +214,12 @@ class AsymptoticsAnalysis(ABC):
                 elif mode == Mode.TRUE:
                     bias, var = self.compute_true_biases_and_variances([T], K=K)
                     diagonal_variance[(alpha, T)] = var[T]
+                elif mode == Mode.LAPLACE_ONLY:
+                    pass  # Only compute Laplace variance, do nothing for diagonal variance
                 else:
-                    raise ValueError(f"Unsupported mode: {mode}. Use Mode.DIAGONAL or Mode.TRUE.")
+                    raise ValueError(f"Unsupported mode: {mode}. Use Mode.DIAGONAL, Mode.TRUE, or Mode.LAPLACE_ONLY.")
 
+        if mode == Mode.LAPLACE_ONLY:
+            return laplace_variance
         return laplace_variance, diagonal_variance
     
