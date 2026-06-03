@@ -1,3 +1,5 @@
+from exec.batch import Delta
+
 from .base_asymptotics import AsymptoticsAnalysis, gamma_prime
 from src.risk_computations import RiskComputations
 from src.least_squares import PowerLawRegression
@@ -60,12 +62,14 @@ class LaplaceWSD(AsymptoticsAnalysis):
         T0 = self.T0(T)  # cooldown start step
         alpha = self.model.exponent
         eta = self.schedule.get_base_lr()
+        beta = m_exponent
+        Delta = m_constant
 
         # m_exponent represents beta
-        exponent = ((m_exponent - 1) / alpha) + 1
+        exponent = ((beta - 1) / alpha) + 1
         
         # m_constant represents Delta
-        actual_constant_multiplier = (L * m_constant) / (2 * alpha)
+        actual_constant_multiplier = (L * Delta) / (2 * alpha)
 
         time_numerator = (t - T0) * (2 * T - T0 - t + 1)
         time_denominator = 2 * (T - T0)

@@ -37,6 +37,7 @@ class LaplaceLinear(AsymptoticsAnalysis):
 
     def compute_laplace_approx_bias(self, T, t, m_exponent, m_constant):
         """Compute the bias term for the linear schedule using the Laplace approximation at step t."""
+        
         eta = self.schedule.get_base_lr() 
         alpha = self.model.exponent
         

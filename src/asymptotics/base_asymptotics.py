@@ -192,6 +192,43 @@ class AsymptoticsAnalysis(ABC):
         return laplace_var, diagonal_var
     
 
+    def compare_different_alphas(self, T_values, list_alphas, m_constant, m_exponent, *args, changing_dim=None, mode: Mode = Mode.DIAGONAL, **kwargs):
+        """Compare Laplace risks for different alpha values at fixed eta. Bias and variance!"""
+        for alpha in list_alphas:
+            assert alpha > 1, "Alpha should be greater than 1 for the power law eigenvalue decay to ensure convergence of the risk."
+        laplace_var = {}
+        diagonal_var = {}
+        laplace_bias = {}
+        diagonal_bias = {}
+        current_eta = self.schedule.get_base_lr() if getattr(self, 'schedule', None) is not None else 0.01
+        for T in T_values:
+            for alpha in list_alphas:
+                new_dim = int(changing_dim(T, alpha)) if changing_dim is not None else None
+                self._update_model_for_alpha(alpha, new_dim=new_dim)  # Update model for new alpha and possibly new dimension
+                self._setup_for_T(T, optimize=False, base_lr=current_eta)  # Keep eta fixed across alpha values
+                print(f"Comparing trajectories (bias+variance) for T={T} and alpha={alpha}...")
+                laplace_var[(alpha, T)] = self.compute_laplace_approx_variance(T, T)
+                laplace_bias[(alpha, T)] = self.compute_laplace_approx_bias(T, T, m_exponent=m_exponent, m_constant=m_constant)
+                if mode == Mode.DIAGONAL:
+                    bias, var = self.compute_true_approx_biases_and_variances([T])
+                    diagonal_var[(alpha, T)] = var[T]
+                    diagonal_bias[(alpha, T)] = bias[T]
+                elif mode == Mode.TRUE:
+                    bias, var = self.compute_true_biases_and_variances([T])
+                    diagonal_var[(alpha, T)] = var[T]
+                    diagonal_bias[(alpha, T)] = bias[T]
+                elif mode == Mode.LAPLACE_ONLY:
+                    pass  # Only compute Laplace variance and bias, do nothing for diagonal variance and bias
+                else:
+                    raise ValueError(f"Unsupported mode: {mode}. Use Mode.DIAGONAL, Mode.TRUE, or Mode.LAPLACE_ONLY.")
+        
+        if mode == Mode.LAPLACE_ONLY:
+            return laplace_bias, laplace_var
+        
+        return laplace_bias, diagonal_bias, laplace_var, diagonal_var
+
+        
+
     def compare_variance_trajectories_different_alphas(self, T_values, list_alphas, *args, changing_dim=None, K=1, mode: Mode = Mode.DIAGONAL, **kwargs):
         """Compare Laplace variance trajectories for different alpha values at different T values and fixed eta."""
         assert all(alpha > 1 for alpha in list_alphas), "Alpha should be greater than 1 for the power law eigenvalue decay."

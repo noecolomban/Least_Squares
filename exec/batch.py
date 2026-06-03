@@ -210,7 +210,7 @@ for i, alpha in enumerate(alphas):
 
 
 # %% Plot bias as a function of compute budget (B*T) - LAPLACE ONLY
-T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000]
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000]
 alphas = [1.1, 1.5, 1.9]
 batchs = [1, 10, 50]
 
@@ -240,12 +240,13 @@ for b in batchs:
 
     all_laplace_biases[b] = laplace_bias_alpha
 
+#%%
 plt.figure(figsize=(10, 6))
 for i, alpha in enumerate(alphas):
     for j, b in enumerate(batchs):
-        color = colors[j % len(colors)]
-        style = styles[i % len(styles)]
-        marker = markers[i % len(markers)]
+        color = colors[i % len(colors)]
+        style = styles[j % len(styles)]
+        marker = markers[j % len(markers)]
         budget_values = [b * T for T in T_values]
         laplace_biases = [all_laplace_biases[b][(alpha, T)] for T in T_values]
 
@@ -265,6 +266,8 @@ plt.ylabel("Bias")
 plt.title("Batch Scaling Efficiency for bias (Laplace) across alphas and batch sizes")
 plt.legend()
 plt.grid(True, which="both", ls="-", alpha=0.2)
-plt.savefig("images/BATCH_bias_iso_budget_laplace.pdf")
+plt.savefig(f"images/BATCH_bias_iso_budget_laplace_T={max(T_values)}.pdf")
 plt.show()
 
+
+# %%
