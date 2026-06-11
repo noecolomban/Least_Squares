@@ -1,3 +1,5 @@
+from unittest.mock import Base
+
 from .base_asymptotics import AsymptoticsAnalysis, gamma_prime
 from .constant_asymptotics import LaplaceConstant
 from src.risk_computations import RiskComputations
@@ -294,3 +296,122 @@ def compute_different_sigmas(T, model, x0, Delta, beta, sigmas, schedule_type="c
     return results, real_approx
 
 
+class SlockLinear(AsymptoticsAnalysis):
+    
+    def __init__(self, model: PowerLawRegression, x0, T_max=100000, optimize=False, base_lr=0.01):
+        super().__init__(model, x0)
+        print(f"Initializing Laplace_linear with T_max={T_max} for setup...")
+        self._setup_for_T(T_max, optimize=optimize, base_lr=base_lr) 
+
+    
+
+    def _setup_for_T(self, T, optimize=False, base_lr=0.01):
+        """Configure the schedule and computations for a specific horizon T."""
+        self.schedule = WSDSchedule(steps=T, base_lr=base_lr, cooldown_len=1.)
+        self.sgd = SGD(self.model, self.x0, self.schedule)
+        self.computations = RiskComputations(
+            self.model, self.x0, [self.schedule], ["linear"], sgd_class=SGD
+        )
+        
+        # Optimize learning rate specifically for this T
+        if optimize:
+            self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)
+
+    def _update_schedule_for_T(self, T):
+        """Update the schedule and re-optimize eta for a new T."""
+        assert self.schedule is not None, "Schedule must be initialized before updating."
+        self.schedule = WSDSchedule(steps=T, base_lr=self.schedule.get_base_lr(), cooldown_len=1.)
+        self.sgd.schedule = self.schedule
+
+
+    def compute_slock_approx_bias(self, T, t, m_exponent, m_constant):
+        """
+        Compute the bias term for the constant schedule using the SLOCK approximation.
+        Updated to match the exact mathematical formulation for the denominator.
+        """
+        eta = self.schedule.get_base_lr()
+        alpha = self.model.exponent
+        L = 1.0
+        
+        # Calculate the Trace of Lambda (sum of eigenvalues)
+        tr_lambda = np.sum(self.model.Lambda_vals)
+        
+        # C corresponds to the exponent: ((beta - 1) / alpha) + 1
+        C = (m_exponent - 1) / alpha + 1
+        
+        # Compute the new base for the denominator: eta * L * T * (1 - (eta * Tr(Lambda)) / 3)
+        denom_base = eta * L * T * (1 - (eta * tr_lambda) / 3.0)
+        
+        # Assemble the final bias formula
+        bias = (m_constant / (2 * alpha)) * (gamma(C) / (denom_base ** C))
+        
+        return bias
+
+    def compute_slock_approx_variance(self, T, t):
+        """
+        Compute the asymptotic equivalent for the variance component of the Excess Risk
+        under a linear schedule. Matches the exact mathematical formulation 
+        incorporating the L/i^alpha projection and the phase transition at alpha = 2.
+        """
+        from scipy.integrate import quad
+        from scipy.special import gamma, zeta
+        import numpy as np
+
+        eta = self.schedule.get_base_lr() 
+        sigma_sq = self.model.sigma**2
+        alpha = self.model.exponent
+        L = 1.0
+        
+        if alpha < 2.0:
+            # Non-parametric regime (dominated by the spectral tail)
+            # Variance decays as T^((1-alpha)/alpha)
+            
+            # Calculate the Trace of Lambda (sum of eigenvalues)
+            tr_lambda = np.sum(self.model.Lambda_vals)
+            
+            # Define the integrand for I_{alpha, eta}
+            def integrand(x):
+                term1 = x ** ((2.0 - 2.0 * alpha) / alpha)
+                term2 = (1.0 - (eta * tr_lambda / 3.0) * x) ** ((1.0 - 2.0 * alpha) / alpha)
+                return term1 * term2
+                
+            I_val, _ = quad(integrand, 0.0, 1.0)
+            
+            prefix = (L**2 * eta**2 * sigma_sq) / alpha
+            gamma_term = gamma(2.0 - 1.0 / alpha)
+            eta_L_term = (eta * L) ** ((1.0 - 2.0 * alpha) / alpha)
+            T_term = T ** ((1.0 - alpha) / alpha)
+            
+            variance = 0.5*prefix * gamma_term * eta_L_term * I_val * T_term
+            
+        elif alpha > 2.0:
+            # Parametric regime (dominated by the macroscopic dimensions)
+            # Variance achieves the standard finite-dimensional rate T^(-1/2)
+            
+            prefix = np.sqrt(np.pi) / 4.0
+            L_eta_term = np.sqrt(L * eta)
+            # scipy.special.zeta(x) computes the Riemann Zeta function
+            zeta_term = zeta(alpha / 2.0) 
+            T_term = T ** (-0.5)
+            
+            variance = 0.5*prefix * L_eta_term * sigma_sq * zeta_term * T_term
+            
+        else:
+            # Exact phase transition edge case (alpha == 2.0)
+            raise ValueError("alpha = 2.0 is the exact phase transition and requires the logarithmic O(T^{-1/2} ln(T)) equivalent.")
+            
+        return variance
+
+
+    compute_laplace_approx_bias = compute_slock_approx_bias
+    compute_laplace_approx_variance = compute_slock_approx_variance
+
+    def compute_laplace_approx_risk_for_T(self, T,t, m_exponent, m_constant, separate_bias_variance=False):
+        """Setup for T, optimize eta, and compute Lagrange approximate risk."""
+        self._update_schedule_for_T(T)
+        t = T - 1  # Evaluate at the last step of the schedule
+        bias = self.compute_slock_approx_bias(T, t, m_exponent, m_constant)
+        variance = self.compute_slock_approx_variance(T, t)
+        if separate_bias_variance:
+            return bias, variance
+        return bias + variance

@@ -140,6 +140,7 @@ changing_dim = lambda T, alpha: (T/50)**(1/(alpha+0.2))  # Example function for 
 
 mode = Mode.TRUE  # Choose between Mode.TRUE for exact variance and Mode.DIAGONAL for diagonal approximation
 
+#%%
 all_laplace_variances, all_diagonal_variances = new_linear_laplace_analysis.compare_variance_trajectories_different_alphas(
     T_values=T_values, 
     list_alphas=list_alphas, 
@@ -243,4 +244,58 @@ save_dict_to_json(all_laplace_variances_str, folder="laplace_linear", filename=f
 all_diagonal_variances_str = {str(key): value for key, value in all_diagonal_variances.items()}
 save_dict_to_json(all_diagonal_variances_str, folder="laplace_linear", filename=f"LINEAR_all_diagonal_variances_{dim_text}_Tmax={max(T_values)}.json")
 
+# %%
+###########
+
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000]
+list_alphas = [1.1, 1.5]
+
+laplace_bias_alpha, diagonal_bias_alpha, laplace_variance_alpha, diagonal_variance_alpha = (
+    new_linear_laplace_analysis.compare_different_alphas(
+        T_values=T_values, 
+        list_alphas=list_alphas,
+        m_constant=Delta,
+        m_exponent=beta,
+        K=1,
+        changing_dim=changing_dim,
+        mode=Mode.DIAGONAL
+    )
+)
+
+#%%
+ratios_bias = {key: laplace_bias_alpha[key] / diagonal_bias_alpha[key] if diagonal_bias_alpha[key] != 0 else 0 for key in laplace_bias_alpha.keys()}
+ratios_variance = {key: laplace_variance_alpha[key] / diagonal_variance_alpha[key] if diagonal_variance_alpha[key] != 0 else 0 for key in laplace_variance_alpha.keys()}
+colors = ['red', 'blue', 'green', 'orange', 'purple', 'brown', 'pink', 'gray', 'olive', 'cyan']
+
+
+for alpha in list_alphas:
+    color = colors[list_alphas.index(alpha)]
+    Y_bias = np.array([ratios_bias[(alpha, T)] for T in T_values])
+    plt.plot(T_values, Y_bias, label=f"Bias Ratio (alpha={alpha})", marker='o', color=color)
+plt.xscale('log')
+#plt.yscale('log')
+plt.xlim(100, max(T_values))
+plt.ylim(0, 2)
+plt.xlabel("T (log scale)")
+plt.ylabel("Bias Ratio (Laplace Bias / Diagonal Bias)")
+plt.title("Bias Ratio Trajectories for Different Alphas (Laplace vs Diagonal) for Linear schedule")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/LINEAR_bias_ratio_trajectories_comparison_dim={dim}_Tmax={max(T_values)}.pdf")
+plt.show()
+
+for alpha in list_alphas:
+    color = colors[list_alphas.index(alpha)]
+    Y_variance = np.array([ratios_variance[(alpha, T)] for T in T_values])
+    plt.plot(T_values, Y_variance, label=f"Variance Ratio (alpha={alpha})", marker='o', color=color)
+plt.xscale('log')
+plt.xlim(100, max(T_values))  
+plt.ylim(0, 2)      
+plt.xlabel("T (log scale)")
+plt.ylabel("Variance Ratio (Laplace Variance / Diagonal Variance)")
+plt.title("Variance Ratio Trajectories for Different Alphas (Laplace vs Diagonal) for Linear schedule")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/LINEAR_variance_ratio_trajectories_comparison_dim={dim}_Tmax={max(T_values)}.pdf")
+plt.show()
 # %%

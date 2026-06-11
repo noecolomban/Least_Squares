@@ -5,13 +5,14 @@ from abc import ABC, abstractmethod
 from src.risk_computations import RiskComputations
 from src.SGD import SGD
 from enum import StrEnum
+from src.utils import save_dict_to_json, file_exists, read_dict_from_json
 
 
 class Mode(StrEnum):
     DIAGONAL = "diagonal"
     TRUE = "true"
     LAPLACE_ONLY = "laplace"
-
+    SLOCK = "slock"
 
 def gamma_prime(x):
     """Compute the derivative of the gamma function using the digamma function."""
@@ -116,6 +117,20 @@ class AsymptoticsAnalysis(ABC):
             biases[T] = list_bias[t]
             variances[T] = list_variance[t]
         return biases, variances
+    
+    def compute_slock_biases_and_variances(self, T_values, K=1):
+        """Compute slock biases and variances."""
+        assert 0<= K <= 1, "K should be between 0 and 1 to ensure t=K*T is a valid step within the schedule."
+
+        biases = {}
+        variances = {}
+        for T in T_values:
+            self._update_schedule_for_T(T)  # Update schedule for new T
+            list_bias, list_variance = self.sgd.compute_all_slock_risks(separate_bias_variance=True)
+            t = int(K * (T-1))  
+            biases[T] = list_bias[t]
+            variances[T] = list_variance[t]
+        return biases, variances
 
 
     def compute_true_risks(self, T_values):
@@ -136,7 +151,7 @@ class AsymptoticsAnalysis(ABC):
         for T in T_values:
             self._update_schedule_for_T(T)  # Update schedule for new T
             
-            print(f"Computing diagonal approximation for T={T}, dim={dim}...")
+            print(f"Computing true approximation for T={T}, dim={dim}...")
             biases[T], variances[T] = self.sgd.approx_final_theoretical_risk_variable(separate_bias_variance=True)
         return biases, variances
     
@@ -147,6 +162,11 @@ class AsymptoticsAnalysis(ABC):
         biases, variances = self.compute_true_approx_biases_and_variances(T_values, K)
         risks = {T: biases[T] + variances[T] for T in T_values}
         return risks
+
+    @abstractmethod
+    def compute_laplace_approx_bias(self, T, t, m_exponent, m_constant):
+        """Abstract method to compute Laplace bias approximation"""
+        pass
 
     @abstractmethod
     def compute_laplace_approx_risk_for_T(self, T, t, m_exponent, m_constant):
@@ -227,36 +247,92 @@ class AsymptoticsAnalysis(ABC):
         
         return laplace_bias, diagonal_bias, laplace_var, diagonal_var
 
-        
+    
 
-    def compare_variance_trajectories_different_alphas(self, T_values, list_alphas, *args, changing_dim=None, K=1, mode: Mode = Mode.DIAGONAL, **kwargs):
+    def compare_biases_variances_trajectories_different_alphas(self, T_values, list_alphas, m_exponent, m_constant, *args, changing_dim=None, K=1, mode: Mode = Mode.DIAGONAL, from_file=False, **kwargs):
         """Compare Laplace variance trajectories for different alpha values at different T values and fixed eta."""
         assert all(alpha > 1 for alpha in list_alphas), "Alpha should be greater than 1 for the power law eigenvalue decay."
         assert K == 1, "This comparison now uses double-integral variance only, implemented for K=1."
           
         laplace_variance = {}
         diagonal_variance = {}
+        laplace_bias = {}
+        diagonal_bias = {}
         current_eta = self.schedule.get_base_lr() if getattr(self, 'schedule', None) is not None else 0.01
         
+        if from_file and file_exists(
+            folder=mode.value,
+            filename=f"true_bias_alphas={list_alphas}_T_values={T_values}_eta={current_eta}.json"):
+            
+            print("Loading trajectories from file...")
+            true_bias = read_dict_from_json(
+                folder=mode.value,
+                filename=f"true_bias_alphas={list_alphas}_T_values={T_values}_eta={current_eta}.json"
+            )
+            true_variance = read_dict_from_json(
+                folder=mode.value,
+                filename=f"true_variance_alphas={list_alphas}_T_values={T_values}_eta={current_eta}.json"
+            )
+            approx_bias = read_dict_from_json(
+                folder=mode.value,
+                filename=f"approx_bias_alphas={list_alphas}_T_values={T_values}_eta={current_eta}.json"
+            )
+            approx_variance = read_dict_from_json(
+                folder=mode.value,
+                filename=f"approx_variance_alphas={list_alphas}_T_values={T_values}_eta={current_eta}.json"
+            )
+            return approx_variance, true_variance, approx_bias, true_bias
+
+
         for T in T_values:
             for alpha in list_alphas:
                 new_dim = int(changing_dim(T, alpha)) if changing_dim is not None else None
                 self._update_model_for_alpha(alpha, new_dim=new_dim) 
                 self._setup_for_T(T, optimize=False, base_lr=current_eta)  
-                print(f"Comparing variance trajectories for T={T} and alpha={alpha}...")
+                print(f"Comparing variance trajectories for T={T} and alpha={alpha} (dim={new_dim})...")
                 laplace_variance[(alpha, T)] = self.compute_laplace_approx_variance(T, T)
+                laplace_bias[(alpha, T)] = self.compute_laplace_approx_bias(T, T, m_exponent=m_exponent, m_constant=m_constant)
                 if mode == Mode.DIAGONAL:
                     bias, var = self.compute_true_approx_biases_and_variances([T], K=K)
                     diagonal_variance[(alpha, T)] = var[T]
+                    diagonal_bias[(alpha, T)] = bias[T]
                 elif mode == Mode.TRUE:
                     bias, var = self.compute_true_biases_and_variances([T], K=K)
                     diagonal_variance[(alpha, T)] = var[T]
+                    diagonal_bias[(alpha, T)] = bias[T]
+                elif mode == Mode.SLOCK:
+                    bias, var = self.compute_slock_biases_and_variances([T], K=K)
+                    diagonal_variance[(alpha, T)] = var[T]
+                    diagonal_bias[(alpha, T)] = bias[T]
                 elif mode == Mode.LAPLACE_ONLY:
                     pass  # Only compute Laplace variance, do nothing for diagonal variance
                 else:
-                    raise ValueError(f"Unsupported mode: {mode}. Use Mode.DIAGONAL, Mode.TRUE, or Mode.LAPLACE_ONLY.")
+                    raise ValueError(f"Unsupported mode: {mode}. Use Mode.DIAGONAL, Mode.TRUE, Mode.SLOCK, or Mode.LAPLACE_ONLY.")
 
         if mode == Mode.LAPLACE_ONLY:
             return laplace_variance
-        return laplace_variance, diagonal_variance
+        
+        save_dict_to_json(
+            {str((alpha, T)): bias for (alpha, T), bias in diagonal_bias.items()}, 
+            folder=mode.value, 
+            filename=f"true_bias_alphas={list_alphas}_T_values={T_values}_eta={current_eta}.json")
+        save_dict_to_json(
+            {str((alpha, T)): var for (alpha, T), var in diagonal_variance.items()}, 
+            folder=mode.value, 
+            filename=f"true_variance_alphas={list_alphas}_T_values={T_values}_eta={current_eta}.json")
+        save_dict_to_json(
+            {str((alpha, T)): bias for (alpha, T), bias in laplace_bias.items()}, 
+            folder=mode.value, 
+            filename=f"approx_bias_alphas={list_alphas}_T_values={T_values}_eta={current_eta}.json")
+        save_dict_to_json(
+            {str((alpha, T)): var for (alpha, T), var in laplace_variance.items()}, 
+            folder=mode.value, 
+            filename=f"approx_variance_alphas={list_alphas}_T_values={T_values}_eta={current_eta}.json")
+
+        return laplace_variance, diagonal_variance, laplace_bias, diagonal_bias
     
+
+    def compare_variance_trajectories_different_alphas(self, T_values, list_alphas, *args, changing_dim=None, K=1, mode: Mode = Mode.DIAGONAL, **kwargs):
+        #use the previous function but only return the variance trajectories for easier plotting
+        laplace_variance, diagonal_variance, _, _ = self.compare_biases_variances_trajectories_different_alphas(T_values, list_alphas, m_exponent=self.model.exponent, m_constant=1, changing_dim=changing_dim, K=K, mode=mode)
+        return laplace_variance, diagonal_variance

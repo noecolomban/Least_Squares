@@ -60,6 +60,9 @@ def read_dict_from_json(folder: str, filename: str) -> dict:
     return dict_new_keys
 
 
+def file_exists(folder: str, filename: str) -> bool:
+    file_path = pathlib.Path("saved_files") / folder / filename
+    return file_path.exists()
 
 
 #

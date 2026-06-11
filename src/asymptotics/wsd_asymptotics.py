@@ -1,5 +1,3 @@
-from exec.batch import Delta
-
 from .base_asymptotics import AsymptoticsAnalysis, gamma_prime
 from src.risk_computations import RiskComputations
 from src.least_squares import PowerLawRegression

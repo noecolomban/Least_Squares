@@ -72,6 +72,8 @@ class SGD(BaseSGD):
     def __init__(self, model: LinearRegression, x0: np.ndarray, schedule: ScheduleBase):
         super().__init__(model, x0, schedule)
 
+
+
     def compute_all_theoretical_risks(self, separate_bias_variance=False) -> np.ndarray:
         """
         Calcule le risque théorique à chaque étape (Optimisé O(d))
@@ -120,6 +122,62 @@ class SGD(BaseSGD):
             return np.array(risks)
     
 
+    def compute_all_slock_risks(self, separate_bias_variance=False) -> np.ndarray:
+        """
+        Computes the theoretical risk at each step for the Slock model.
+        Optimized for O(d) execution time using purely diagonal updates.
+        """
+        diff_0 = self.x0 - self.model.x_star
+        Sigma_0 = np.outer(diff_0, diff_0)
+        
+        # Initialize bias vector (m_t)
+        _, m_t = self.model.compute_M_t(Sigma_0)
+        m_t = m_t.flatten()
+        
+        # Initialize variance vector (v_t) at zero
+        v_t = np.zeros(self.model.dim)
+        risks = []
+
+        if separate_bias_variance:
+            biases = []
+            variances = []
+
+        irreducible_noise = self.model.sigma**2
+        lambda_vec = self.L  # Eigenvalues of the Hessian matrix (Lambda)
+        
+        # Slock core component: Trace of Lambda
+        tr_Lambda = np.sum(lambda_vec)
+        
+        for t in range(self.T):
+            # Calculate expected risks: 0.5 * lambda^T * state_vector
+            bias_part = np.dot(lambda_vec, m_t)
+            variance_part = np.dot(lambda_vec, v_t)
+            risk = 0.5 * (bias_part + variance_part)
+            
+            self.risks[t] = risk
+            risks.append(risk)
+            
+            if separate_bias_variance:
+                biases.append(0.5 * bias_part)
+                variances.append(0.5 * variance_part)
+                
+            if t < self.T - 1:
+                lr = self.get_step(t)
+                
+                # Slock state multiplier: I - 2*eta*Lambda + eta^2*tr(Lambda)*Lambda
+                slock_factor = 1.0 - 2.0 * lr * lambda_vec + (lr**2) * tr_Lambda * lambda_vec
+                
+                # Decoupled Slock updates
+                # Bias simply decays through the slock factor
+                m_t = slock_factor * m_t
+                
+                # Variance decays through the slock factor and accumulates stochastic noise
+                v_t = slock_factor * v_t + (lr**2 * irreducible_noise) * lambda_vec
+        
+        if separate_bias_variance:
+            return np.array(biases), np.array(variances)
+        else:
+            return np.array(risks)
     
     #OPTIMIZED BY GEMINI
     def approx_all_theoretical_risks(self, separate_bias_variance=False, only_final_T=True) -> np.ndarray:
@@ -196,44 +254,6 @@ class SGD(BaseSGD):
         return final_bias + final_variance
     
 
-
-    def all_slock_risks(self) -> np.ndarray:
-        """
-        Calcule le risque théorique à chaque étape (Optimisé O(d))
-        """
-        diff_0 = self.x0 - self.model.x_star
-        Sigma_0 = np.outer(diff_0, diff_0)
-        
-        # Extract initial m_t
-        _, m_t_initial = self.model.compute_M_t(Sigma_0)
-        
-        # Since initial variance v_0 is zero, M_0 is just the flattened initial m_t.
-        M_t = m_t_initial.flatten()
-        
-        risks = []
-        irreducible_noise = self.model.sigma**2
-        lambda_vec = self.L  # Eigenvalues of H
-        
-        # Precompute the trace of Lambda (sum of eigenvalues)
-        tr_lambda = np.sum(lambda_vec) 
-        
-        for t in range(self.T):
-            # Risk is 0.5 * E[||x - x*||^2_H], which simplifies to 0.5 * dot(Lambda, M_t)
-            risk = 0.5 * np.dot(lambda_vec, M_t)
-            
-            self.risks[t] = risk
-            risks.append(risk)
-            
-            if t < self.T - 1:
-                lr = self.get_step(t)
-                
-                # Apply the update rule: 
-                # M_{t+1} = [I + (-2*eta + eta^2 * tr(Lambda)) * Lambda] * M_t + eta^2 * sigma^2 * Lambda
-                update_multiplier = 1.0 + (-2.0 * lr + (lr**2) * tr_lambda) * lambda_vec
-                
-                M_t = update_multiplier * M_t + (lr**2 * irreducible_noise) * lambda_vec
-                
-        return np.array(risks)
 
 class NoisyGD(BaseSGD):
     name = "Noisy GD"
