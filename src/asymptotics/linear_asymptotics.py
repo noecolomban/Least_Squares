@@ -298,8 +298,8 @@ def compute_different_sigmas(T, model, x0, Delta, beta, sigmas, schedule_type="c
 
 class SlockLinear(AsymptoticsAnalysis):
     
-    def __init__(self, model: PowerLawRegression, x0, T_max=100000, optimize=False, base_lr=0.01):
-        super().__init__(model, x0)
+    def __init__(self, model: PowerLawRegression, x0, beta, T_max=100000, optimize=False, base_lr=0.01):
+        super().__init__(model, x0, beta)
         print(f"Initializing Laplace_linear with T_max={T_max} for setup...")
         self._setup_for_T(T_max, optimize=optimize, base_lr=base_lr) 
 
@@ -363,8 +363,6 @@ class SlockLinear(AsymptoticsAnalysis):
         L = 1.0
         
         if alpha < 2.0:
-            # Non-parametric regime (dominated by the spectral tail)
-            # Variance decays as T^((1-alpha)/alpha)
             
             # Calculate the Trace of Lambda (sum of eigenvalues)
             tr_lambda = np.sum(self.model.Lambda_vals)
@@ -385,9 +383,7 @@ class SlockLinear(AsymptoticsAnalysis):
             variance = 0.5*prefix * gamma_term * eta_L_term * I_val * T_term
             
         elif alpha > 2.0:
-            # Parametric regime (dominated by the macroscopic dimensions)
-            # Variance achieves the standard finite-dimensional rate T^(-1/2)
-            
+           
             prefix = np.sqrt(np.pi) / 4.0
             L_eta_term = np.sqrt(L * eta)
             # scipy.special.zeta(x) computes the Riemann Zeta function

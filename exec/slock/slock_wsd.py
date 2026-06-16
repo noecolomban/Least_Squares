@@ -1,4 +1,4 @@
-#%% LINEAR  SCHEDULE
+#%% WSD  SCHEDULE
 
 
 import numpy as np
@@ -9,6 +9,7 @@ from src.asymptotics import (
     LaplaceConstant,  
     LaplaceLinear,
     SlockLinear,
+    SlockWSD,
     Mode,
     compute_different_sigmas,
 )
@@ -26,25 +27,26 @@ diff0 = Delta * np.array([1/i**beta for i in range(1, dim+1)])
 x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 optimize = False
-T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000]
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000]
 #T_values = [10, 20, 50, 100, 200, 500, 1000, 2000]
 list_alphas = [1.1, 1.5, 2.5]
+cooldown_len = 0.2  # Cooldown length for WSD schedule
 
-eta = 0.001
-slock_linear = SlockLinear(model, x0, beta=beta, T_max=max(T_values), optimize=optimize, base_lr=eta)
+eta = 0.01
+slock_wsd = SlockWSD(model, x0, beta=beta, T_max=max(T_values), optimize=optimize, base_lr=eta, cooldown_len=cooldown_len)
 mode = Mode.SLOCK
 #%%
 
 def changing_dim(T, alpha):
     #return int((T/100)**(1/alpha))
     #return 100
-    return min(1000, int(100 * (T/10)**(1/alpha)))
+    return min(1000, int(10 * (T/10)**(1/alpha)))
     #return min(T, 2000)
 
 #%% 
 print("Comparing variance trajectories for different alphas...")
 slock_variance, diagonal_variance, slock_bias, diagonal_bias = (
-    slock_linear.compare_biases_variances_trajectories_different_alphas(
+    slock_wsd.compare_biases_variances_trajectories_different_alphas(
         T_values,
         list_alphas, 
         m_exponent=model.exponent, 
@@ -73,7 +75,7 @@ plt.ylabel("Variance (log scale)")
 plt.title(f"Variance Trajectories for Different Alphas (SLOCK vs Diagonal) eta={eta}")
 plt.legend()
 plt.grid()
-plt.savefig("images/slock/_LINEAR_variance_trajectories_comparison.pdf")
+plt.savefig("images/slock/_WSD_variance_trajectories_comparison.pdf")
 plt.show()
 
 plt.figure(figsize=(12, 8))
@@ -92,7 +94,7 @@ plt.ylabel("Bias (log scale)")
 plt.title(f"Bias Trajectories for Different Alphas (SLOCK vs Diagonal) eta={eta}")
 plt.legend()
 plt.grid()
-plt.savefig("images/slock/_LINEAR_bias_trajectories_comparison.pdf")
+plt.savefig("images/slock/_WSD_bias_trajectories_comparison.pdf")
 plt.show()
 
 
@@ -118,7 +120,7 @@ plt.ylabel("Variance (log scale)")
 plt.title(f"Variance Trajectories for Different Alphas (SLOCK vs Diagonal) eta={eta}")
 plt.legend()
 plt.grid()
-plt.savefig(f"images/slock/_LINEAR_variance_trajectories_comparison_eta={eta}.pdf")
+plt.savefig(f"images/slock/_WSD_variance_trajectories_comparison_eta={eta}.pdf")
 plt.show()
 
 #
@@ -135,7 +137,7 @@ plt.ylabel("Bias Ratio")
 plt.title(f"Bias Ratios for Different Alphas (SLOCK vs Laplace) eta={eta}")
 plt.legend()
 plt.grid()
-plt.savefig(f"images/slock/_LINEAR_bias_ratios_comparison_eta={eta}.pdf")
+plt.savefig(f"images/slock/_WSD_bias_ratios_comparison_eta={eta}.pdf")
 plt.show()
 # %%
 print(ratios_variance)

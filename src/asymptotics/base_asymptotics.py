@@ -20,7 +20,7 @@ def gamma_prime(x):
 
 
 class AsymptoticsAnalysis(ABC):
-    def __init__(self, model: PowerLawRegression, x0):
+    def __init__(self, model: PowerLawRegression, x0, beta):
         self.model = model
         self.x0 = x0
         self.m0 = self._compute_m0()
@@ -28,6 +28,7 @@ class AsymptoticsAnalysis(ABC):
         self.sgd = None
         self.computations: None | RiskComputations = None
         self.batch = 1
+        self.beta = beta  
 
     def _sync_model_state(self):
         """
@@ -56,7 +57,7 @@ class AsymptoticsAnalysis(ABC):
         self.model = PowerLawRegression(dim=dim, sigma=sigma, n_samples=n_samples, exponent=new_alpha)
         
         # 2. Recompute x0 using the NEW Q matrix and the new beta (new_alpha/2)
-        self.x0 = compute_power_x0(dim, self.model.x_star.flatten(), self.model.Q, beta=new_alpha/2)
+        self.x0 = compute_power_x0(dim, self.model.x_star.flatten(), self.model.Q, beta=self.beta/2)
         
         # 3. Recompute m0 based on the newly aligned x0
         self.m0 = self._compute_m0()

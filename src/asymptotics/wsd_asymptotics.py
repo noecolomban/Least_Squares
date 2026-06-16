@@ -5,11 +5,12 @@ from src.SGD import SGD
 import numpy as np
 from scheduled import WSDSchedule
 from scipy.special import gamma, zeta
+from scipy.integrate import quad
 from src.utils import constant_zeta_correction
 
 class LaplaceWSD(AsymptoticsAnalysis):
     """Class for analyzing the Laplace approximation specifically for the WSD schedule."""
-    def __init__(self, model: PowerLawRegression, x0, T_max=100000, optimize=True, base_lr=0.01, cooldown_len=0.2):
+    def __init__(self, model: PowerLawRegression, x0, T_max=100000, optimize=False, base_lr=0.01, cooldown_len=0.2):
         super().__init__(model, x0)
         print(f"Initializing LaplaceWSD with T_max={T_max} for setup...")
         self._setup_for_T(T_max, optimize=optimize, base_lr=base_lr, cooldown_len=cooldown_len)
@@ -161,3 +162,137 @@ class LaplaceWSD(AsymptoticsAnalysis):
             biases[T] = bias
             variances[T] = variance
         return biases, variances
+    
+
+
+class SlockWSD(AsymptoticsAnalysis):
+
+    def __init__(self, model: PowerLawRegression, x0, beta, T_max=100000, base_lr=0.01, cooldown_len=0.2, optimize=False):
+        # Initialize without a fixed T
+        super().__init__(model, x0, beta)
+        print(f"Initializing Laplace_constant with T_max={T_max} for setup...")
+        self._setup_for_T(T_max, cooldown_len=cooldown_len, optimize=optimize, base_lr=base_lr)  # Setup for a large T to compute m0 and optimize eta
+        self.cooldown_len = cooldown_len  
+
+    def _setup_for_T(self, T, optimize=False, base_lr=0.01, cooldown_len=None):
+        """Configure the schedule and computations for a specific horizon T."""
+        if cooldown_len is None:
+            cooldown_len = self.cooldown_len
+        self.schedule = WSDSchedule(steps=T, base_lr=base_lr, cooldown_len=cooldown_len)
+        self.sgd = SGD(self.model, self.x0, self.schedule)
+        self.computations = RiskComputations(
+            self.model, self.x0, [self.schedule], ["constant"], sgd_class=SGD
+        )
+        
+        # Optimize learning rate specifically for this T
+        if optimize:
+            self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)
+
+
+    def _update_schedule_for_T(self, T):
+        """Update the schedule for a new T."""
+        assert self.schedule is not None, "Schedule must be initialized before updating."
+        self.schedule = WSDSchedule(steps=T, base_lr=self.schedule.get_base_lr(), cooldown_len=self.cooldown_len)
+        self.sgd.schedule = self.schedule
+
+
+
+
+    def compute_slock_approx_bias(self, T, t, m_exponent, m_constant):
+        """Compute the bias term for the WSD schedule using the SLOCK approximation."""
+        eta = self.schedule.get_base_lr() 
+        alpha = self.model.exponent
+        cl = self.cooldown_len
+
+        # Calculate the trace of the Lambda matrix
+        tr_lambda = np.sum(self.model.Lambda_vals)
+
+        # WSD specific factor for the denominator base
+        wsd_factor = 2 - cl - eta * tr_lambda * (1 - 2 * cl / 3)
+        denominator_base = eta * T * wsd_factor
+
+        # Asymptotic power C = (beta - 1) / alpha + 1
+        C = (m_exponent - 1) / alpha + 1
+        
+        # Final bias calculation
+        bias = (m_constant / (2 * alpha)) * gamma(C) / (denominator_base)**C
+        
+        return bias
+
+
+
+    def compute_slock_approx_variance(self, T, t):
+        """
+        Compute the variance term for the WSD schedule using the SLOCK approximation.
+        Handles the phase transition at alpha = 2.
+        """
+        eta = self.schedule.get_base_lr() 
+        sigma_sq = self.model.sigma**2
+        alpha = self.model.exponent
+        L = 1.0  # Assuming L=1 as in your original function
+        cl = self.cooldown_len
+
+        tr_lambda = np.sum(self.model.Lambda_vals)
+
+        if alpha > 2.0:
+            # Asymptotic regime for alpha > 2: dominated purely by the cooldown phase (O(T^-1/2))
+            prefix = (np.sqrt(np.pi) / 8.0) * np.sqrt(L * eta) * sigma_sq
+            variance = prefix * zeta(alpha / 2.0) * (cl * T)**(-0.5)
+            
+            return variance
+
+        elif 1.0 < alpha < 2.0:
+            # Asymptotic regime for 1 < alpha < 2: both constant and cooldown phases contribute (O(T^((1-alpha)/alpha)))
+            A = 2 * eta * L
+            B = tr_lambda * (eta**2) * L
+            D = B / 3.0 - A / 2.0
+            
+            kappa_1 = (A - B) * (1 - cl) - cl * D
+            kappa_2 = -cl * D
+
+            # Phase A contribution (Constant phase)
+            term_A_prefix = (L**2 * eta**2 * sigma_sq) / (2 * alpha * (B - A))
+            term_A_gamma = gamma((alpha - 1) / alpha)
+            term_A_brackets = kappa_1**((1 - alpha) / alpha) - kappa_2**((1 - alpha) / alpha)
+            var_A = term_A_prefix * term_A_gamma * term_A_brackets
+            
+            # Phase B contribution (Cooldown phase)
+            def integrand(x):
+                return (x**((2 - 2*alpha) / alpha)) * ((1 - (eta * tr_lambda / 3.0) * x)**((1 - 2*alpha) / alpha))
+            
+            I_alpha_eta, _ = quad(integrand, 0, 1)
+            
+            term_B_prefix = (L**2 * eta**2 * sigma_sq) / (2 * alpha)
+            term_B_gamma = gamma(2 - 1.0 / alpha)
+            term_B_power = (eta * L)**((1 - 2*alpha) / alpha)
+            var_B = term_B_prefix * term_B_gamma * term_B_power * I_alpha_eta * (cl**((1 - alpha) / alpha))
+            
+            # Total variance combined with the temporal scaling
+            variance = (var_A + var_B) * (T**((1 - alpha) / alpha))
+            
+            return variance
+
+        else:
+            # Handle edge cases not covered by the asymptotic bounds (alpha <= 1 or alpha == 2)
+            raise ValueError("Alpha must be strictly in (1, 2) or strictly > 2 for this SLOCK approximation.")
+    
+
+    def compute_laplace_approx_risk_for_T(self, T,t, m_exponent, m_constant, separate_bias_variance=False):
+        """Setup for T, optimize eta, and compute Lagrange approximate risk."""
+        self._update_schedule_for_T(T)
+        t = T - 1  # Evaluate at the last step of the schedule
+        bias = self.compute_slock_approx_bias(T, t, m_exponent, m_constant)
+        variance = self.compute_slock_approx_variance(T, t)
+        if separate_bias_variance:
+            return bias, variance
+        return bias + variance
+    
+    def compute_laplace_approx_bias(self, T, t, m_exponent, m_constant):
+        """Compute the bias term for the constant schedule using the Laplace approximation at step t."""
+        bias, variance = self.compute_laplace_approx_risk_for_T(T, t, m_exponent, m_constant, separate_bias_variance=True)
+        return bias
+    
+    def compute_laplace_approx_variance(self, T, t):
+        """Compute the variance term for the constant schedule using the Laplace approximation at step t."""
+        bias, variance = self.compute_laplace_approx_risk_for_T(T, t, m_exponent=0, m_constant=0, separate_bias_variance=True)
+        return variance
