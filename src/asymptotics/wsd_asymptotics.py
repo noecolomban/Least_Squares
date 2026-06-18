@@ -288,6 +288,7 @@ class SlockWSD(AsymptoticsAnalysis):
             return bias, variance
         return bias + variance
     
+    
     def compute_slock_approx_risk(self, T, m_constant, m_exponent=None):
         """Compute the SLOCK approximate risk for the WSD schedule at the last step.""" 
         if m_exponent is None:
@@ -298,15 +299,11 @@ class SlockWSD(AsymptoticsAnalysis):
         return bias + variance
 
 
-    def compute_laplace_approx_bias(self, T, t, m_exponent, m_constant):
-        """Compute the bias term for the constant schedule using the Laplace approximation at step t."""
-        bias, variance = self.compute_laplace_approx_risk_for_T(T, t, m_exponent, m_constant, separate_bias_variance=True)
-        return bias
+   
     
-    def compute_laplace_approx_variance(self, T, t):
-        """Compute the variance term for the constant schedule using the Laplace approximation at step t."""
-        bias, variance = self.compute_laplace_approx_risk_for_T(T, t, m_exponent=0, m_constant=0, separate_bias_variance=True)
-        return variance
+    compute_laplace_approx_bias = compute_slock_approx_bias  # Alias for clarity
+    compute_laplace_approx_variance = compute_slock_approx_variance  # Alias for clarity
+    
 
 
     def compute_best_slock_eta(self, T, m_constant):

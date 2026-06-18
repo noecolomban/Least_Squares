@@ -186,10 +186,11 @@ for alpha in list_alphas:
 
 # %%
 #COMPARE BEST ETA 
-risks = {}
+risks_approx = {}
 etas = np.logspace(-4, -1, 10)
 alpha = 2.2
 T = 100000
+dim = 100
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=alpha)
 colors = ["red", "blue", "green", "orange", "purple", "brown", "pink"]
 
@@ -197,57 +198,59 @@ for eta in etas:
     slock_wsd = SlockWSD(model, x0, beta=beta, T_max=T, optimize=False, base_lr=eta, cooldown_len=cooldown_len)
     mode = Mode.SLOCK
     slock_risk = slock_wsd.compute_slock_approx_risk(T=T,  m_constant=Delta)
-    risks[eta] = slock_risk
+    risks_approx[eta] = slock_risk
 
 eta_star = slock_wsd.compute_best_slock_eta(T=T, m_constant=Delta)
 print(f"Optimal eta for alpha={alpha}, T={T}, cooldown_len={cooldown_len}: {eta_star}")
 
 plt.figure(figsize=(12, 8))
 color = "red"
-risk_val = [risks[eta] for eta in etas]
+risk_val = [risks_approx[eta] for eta in etas]
 plt.plot(etas, risk_val, label=f"B+V (alpha={alpha}, T={T})", marker='o', color=color)
 plt.axvline(x=eta_star, color='black', linestyle='--', label=f"Computed Optimal eta={eta_star:.4f}")
 plt.xscale('log')
 plt.xlabel("Learning Rate (eta)")
 plt.ylabel("Risk")
 plt.yscale('log')
-plt.title(f"Risk for Different Learning Rates (SLOCK vs Diagonal) alpha={alpha}, T={T}")
+plt.title(f"Risk for Different Learning Rates (True vs Approx) alpha={alpha}, T={T}")
 plt.legend()
 plt.grid()
 plt.savefig(f"images/slock/_WSD_risk_optimal_eta_comparison_alpha={alpha}_T={T}.pdf")
 plt.show()
 # %%
+#With TRUE also
 etas = np.logspace(-4, -1, 10)
 alpha = 2.2
-T = 100000
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=alpha)
 risks_true = {}
+risks_approx = {}
 for eta in etas:
     slock_wsd = SlockWSD(model, x0, beta=beta, T_max=T, optimize=False, base_lr=eta, cooldown_len=cooldown_len)
     mode = Mode.SLOCK
-    slock_variance, diagonal_variance, slock_bias, diagonal_bias = (
+    approx_variance, true_variance, approx_bias, true_bias = (
     slock_wsd.compare_biases_variances_trajectories_different_alphas(
         [T],
         [alpha], 
         m_exponent=model.exponent, 
         m_constant=Delta, 
-        changing_dim=lambda T, alpha: 100,
         mode=mode,
         from_file=False)
     )
-    risks_true[eta] = slock_variance[(alpha, T)] + slock_bias[(alpha, T)] 
+    risks_true[eta] = true_variance[(alpha, T)] + true_bias[(alpha, T)]
+    risks_approx[eta] = approx_variance[(alpha, T)] + approx_bias[(alpha, T)]
 #%%
+eta_star = slock_wsd.compute_best_slock_eta(T=T, m_constant=Delta)
+
 plt.figure(figsize=(12, 8))
 color = "green"
-risk_val = [risks_true[eta] for eta in etas]
-plt.plot(etas, risk_val, label=f"True Risk (alpha={alpha}, T={T})", marker='o', color=color)
-plt.plot(etas, [risks[eta] for eta in etas], label=f"SLOCK Approx Risk (alpha={alpha}, T={T})", marker='x', color="red")
+plt.plot(etas, [risks_true[eta] for eta in etas], label=f"True Risk (alpha={alpha}, T={T})", marker='o', color=color)
+plt.plot(etas, [risks_approx[eta] for eta in etas], label=f"SLOCK Approx Risk (alpha={alpha}, T={T})", marker='x', color="red")
 plt.axvline(x=eta_star, color='black', linestyle='--', label=f"Computed Optimal eta={eta_star:.4f}")
 plt.xscale('log')
 plt.xlabel("Learning Rate (eta)")
 plt.ylabel("Risk")
 plt.yscale('log')
-plt.title(f"True Risk for Different Learning Rates (SLOCK vs Diagonal) alpha={alpha}, T={T}")
+plt.title(f"True Risk for Different Learning Rates (True vs Approx) alpha={alpha}, T={T}")
 plt.legend()
 plt.grid()
 plt.savefig(f"images/slock/_WSD_true_risk_comparison_alpha={alpha}_T={T}.pdf")
@@ -256,15 +259,15 @@ plt.show()
 
 
 
-#With BEST ETA
+#With BEST ETA OPtimized
 def changing_dim(T, alpha):
     return 200
 
 with_eta_star = False
 
-cooldown_list = [0.1, 0.3, 0.5, 0.7, 0.9]
+cooldown_list = [0.1, 0.2, 0.3, 0.4,  0.5, 0.6, 0.7, 0.8, 0.9]
 T = 100000
-list_alphas = [5]
+list_alphas = [1.2, 1.8, 2.5]
 approx_slock = {}
 true_slock = {}
 for cooldown_len in cooldown_list:
@@ -287,9 +290,9 @@ for cooldown_len in cooldown_list:
 
 # %% compare
 if with_eta_star:
-    title = f"Risk optimized eta* (SLOCK vs Diagonal)"
+    title = f"Risk optimized eta* (True vs Approx)"
 else:
-    title = f"Risk for eta={eta} (SLOCK vs Diagonal)"
+    title = f"Risk for eta={eta} (True vs Approx)"
 
 colors = plt.cm.viridis(np.linspace(0, 1, len(list_alphas)))
 plt.figure(figsize=(12, 8))
