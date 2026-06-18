@@ -250,7 +250,7 @@ class AsymptoticsAnalysis(ABC):
 
     
 
-    def compare_biases_variances_trajectories_different_alphas(self, T_values, list_alphas, m_exponent, m_constant, *args, changing_dim=None, K=1, mode: Mode = Mode.DIAGONAL, from_file=False, **kwargs):
+    def compare_biases_variances_trajectories_different_alphas(self, T_values, list_alphas, m_exponent, m_constant, *args, changing_dim=None, K=1, mode: Mode = Mode.DIAGONAL, from_file=False, with_eta_star=False, **kwargs):
         """Compare Laplace variance trajectories for different alpha values at different T values and fixed eta."""
         assert all(alpha > 1 for alpha in list_alphas), "Alpha should be greater than 1 for the power law eigenvalue decay."
         assert K == 1, "This comparison now uses double-integral variance only, implemented for K=1."
@@ -289,10 +289,18 @@ class AsymptoticsAnalysis(ABC):
             for alpha in list_alphas:
                 new_dim = int(changing_dim(T, alpha)) if changing_dim is not None else None
                 self._update_model_for_alpha(alpha, new_dim=new_dim) 
+                
+                if with_eta_star:
+                    current_eta = self.compute_best_slock_eta(T, m_constant)
+                    print(f"Optimal eta* for T={T}, alpha={alpha} is {current_eta}.")
+                
                 self._setup_for_T(T, optimize=False, base_lr=current_eta)  
+                
                 print(f"Comparing variance trajectories for T={T} and alpha={alpha} (dim={new_dim})...")
                 laplace_variance[(alpha, T)] = self.compute_laplace_approx_variance(T, T)
                 laplace_bias[(alpha, T)] = self.compute_laplace_approx_bias(T, T, m_exponent=m_exponent, m_constant=m_constant)
+                
+                
                 if mode == Mode.DIAGONAL:
                     bias, var = self.compute_true_approx_biases_and_variances([T], K=K)
                     diagonal_variance[(alpha, T)] = var[T]

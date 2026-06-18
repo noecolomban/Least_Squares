@@ -141,3 +141,37 @@ plt.show()
 print(ratios_variance)
 print(ratios_bias)
 # %%
+#COMPARE ETAS
+
+risks = {}
+etas = np.logspace(-4, -1, 30)
+alpha = 2.2
+T = 100000
+model = PowerLawRegression(dim=dim, sigma=sigma, exponent=alpha)
+colors = ["red", "blue", "green", "orange", "purple", "brown", "pink"]
+
+for eta in etas:
+    slock_linear = SlockLinear(model, x0, beta=beta, T_max=T, optimize=False, base_lr=eta)
+    mode = Mode.SLOCK
+    slock_risk = slock_linear.compute_slock_approx_risk(T=T,  m_constant=Delta)
+    risks[eta] = slock_risk
+
+eta_star = slock_linear.compute_best_slock_eta(T=T, m_constant=Delta)
+print(f"Optimal eta for alpha={alpha}, T={T}: {eta_star}")
+
+plt.figure(figsize=(12, 8))
+color = "red"
+risk_val = [risks[eta] for eta in etas]
+plt.plot(etas, risk_val, label=f"B+V (alpha={alpha}, T={T})", marker='o', color=color)
+plt.axvline(x=eta_star, color='black', linestyle='--', label=f"Computed Optimal eta={eta_star:.4f}")
+plt.xscale('log')
+plt.xlabel("Learning Rate (eta)")
+plt.ylabel("Risk")
+plt.yscale('log')
+plt.title(f"Risk for Different Learning Rates (SLOCK vs Diagonal) alpha={alpha}, T={T}")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/slock/_LINEAR_risk_optimal_eta_comparison_alpha={alpha}_T={T}.pdf")
+plt.show()
+# %%
+

@@ -19,7 +19,7 @@ class LaplaceLinear(AsymptoticsAnalysis):
 
     
 
-    def _setup_for_T(self, T, optimize=True, base_lr=0.01):
+    def _setup_for_T(self, T, optimize=False, base_lr=0.01):
         """Configure the schedule and computations for a specific horizon T."""
         self.schedule = WSDSchedule(steps=T, base_lr=base_lr, cooldown_len=1.)
         self.sgd = SGD(self.model, self.x0, self.schedule)
@@ -411,3 +411,67 @@ class SlockLinear(AsymptoticsAnalysis):
         if separate_bias_variance:
             return bias, variance
         return bias + variance
+
+    def compute_slock_approx_risk(self, T, m_constant, m_exponent=None):
+        """Compute the SLOCK approximate risk for the WSD schedule at the last step.""" 
+        if m_exponent is None:
+            m_exponent = self.beta
+        self._update_schedule_for_T(T)
+        bias = self.compute_slock_approx_bias(T, T - 1, m_exponent, m_constant)
+        variance = self.compute_slock_approx_variance(T, T - 1)
+        return bias + variance
+    
+    def compute_best_slock_eta(self, T, m_constant):
+        """
+        Compute the optimal learning rate (eta^*) for the Linear schedule
+        using the exact closed-form SLOCK approximations.
+        """
+        beta = self.beta
+        Delta = m_constant
+        alpha = self.model.exponent
+        sigma_sq = self.model.sigma**2
+        L = 1.0
+
+        # Recurring bias exponent omega
+        omega = (alpha + beta - 1.0) / alpha
+
+        if 1.0 < alpha < 2.0:
+            # ---------------------------------------------------------
+            # Regime 1 < alpha < 2
+            # ---------------------------------------------------------
+            
+            # Compute the exact limit of the spatial integral I_{alpha, 0}
+            I_alpha_0 = alpha / (2.0 - alpha)
+            
+            # Compute optimal eta components
+            numerator = omega * alpha * Delta * gamma(omega)
+            denominator = sigma_sq * gamma(2.0 - 1.0 / alpha) * I_alpha_0 * (L ** (beta / alpha))
+            
+            prefix = (numerator / denominator) ** (alpha / (alpha + beta))
+            exponent = -beta / (alpha + beta)
+            
+            eta_star = prefix * (T ** exponent)
+            
+        elif alpha > 2.0:
+            # ---------------------------------------------------------
+            # Regime alpha > 2
+            # ---------------------------------------------------------
+            
+            numerator = 8.0 * omega * Delta * gamma(omega)
+            
+            # L exponent: (alpha + 2*beta - 2) / (2*alpha)
+            L_pow = (alpha + 2.0 * beta - 2.0) / (2.0 * alpha)
+            denominator = alpha * np.sqrt(np.pi) * sigma_sq * zeta(alpha / 2.0) * (L ** L_pow)
+            
+            prefix_pow = (2.0 * alpha) / (3.0 * alpha + 2.0 * beta - 2.0)
+            prefix = (numerator / denominator) ** prefix_pow
+            
+            exponent = (2.0 - alpha - 2.0 * beta) / (3.0 * alpha + 2.0 * beta - 2.0)
+            
+            eta_star = prefix * (T ** exponent)
+            
+        else:
+            # Handle alpha <= 1 or alpha == 2
+            raise ValueError("Alpha must be strictly in (1, 2) or strictly > 2 for this closed-form approximation.")
+
+        return eta_star
