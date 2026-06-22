@@ -1,3 +1,5 @@
+from unittest.mock import Base
+
 from .base_asymptotics import AsymptoticsAnalysis, gamma_prime
 from .constant_asymptotics import LaplaceConstant
 from src.risk_computations import RiskComputations
@@ -5,7 +7,7 @@ from src.least_squares import PowerLawRegression
 from src.SGD import SGD
 import numpy as np
 from scheduled import WSDSchedule
-from scipy.special import gamma, gammainc
+from scipy.special import gamma, gammainc, gammaincc, zeta
 
 
 
@@ -15,8 +17,9 @@ class LaplaceLinear(AsymptoticsAnalysis):
         print(f"Initializing Laplace_linear with T_max={T_max} for setup...")
         self._setup_for_T(T_max, optimize=optimize, base_lr=base_lr) 
 
+    
 
-    def _setup_for_T(self, T, optimize=True, base_lr=0.01):
+    def _setup_for_T(self, T, optimize=False, base_lr=0.01):
         """Configure the schedule and computations for a specific horizon T."""
         self.schedule = WSDSchedule(steps=T, base_lr=base_lr, cooldown_len=1.)
         self.sgd = SGD(self.model, self.x0, self.schedule)
@@ -36,6 +39,7 @@ class LaplaceLinear(AsymptoticsAnalysis):
 
     def compute_laplace_approx_bias(self, T, t, m_exponent, m_constant):
         """Compute the bias term for the linear schedule using the Laplace approximation at step t."""
+        
         eta = self.schedule.get_base_lr() 
         alpha = self.model.exponent
         
@@ -90,8 +94,10 @@ class LaplaceLinear(AsymptoticsAnalysis):
             "compute_laplace_approx_variance now uses the double-integral formula, "
             "implemented for final time only (t >= T-1)."
         )
-        return self.compute_laplace_approx_variance_double_integral(T, K=1)
-    
+        #return self.compute_laplace_approx_variance_double_integral(T, K=1)
+        #return self.compute_laplace_approx_variance_dim(T)
+        return self.compute_laplace_approx_variance_d_alpha(T)
+        #return self.compute_laplace_approx_variance_o_T(T)
 
     def compute_laplace_approx_risk_for_T(self, T, t, m_exponent, m_constant):
         """Setup for T, optimize eta, and compute 1st-order Laplace approximate risk for a linear schedule."""
@@ -182,6 +188,94 @@ class LaplaceLinear(AsymptoticsAnalysis):
 
             variance = prefix1 * prefix2 * (term1 + term2)
         return variance
+    
+
+    def compute_laplace_approx_variance_o_T(self, T):
+        """
+        Compute the asymptotic variance expansion in the regime where d^alpha = o(T).
+        The continuous transient term collapses entirely.
+        """
+        eta = self.schedule.get_base_lr()
+        alpha = self.model.exponent
+        L = 1.0
+        sigma = self.model.sigma
+        dim = self.model.dim
+        
+        # Global scaling prefactors
+        variance_scale = (L**2 * sigma**2 * eta**2) / (2.0 * alpha)
+        time_prefactor = 1.0 / (2.0 * np.sqrt(T) * (eta * L)**1.5)
+        
+        if alpha == 2:
+            # For alpha = 2, the discrete sum is the harmonic series
+            euler_gamma = np.euler_gamma # Approx 0.5772...
+            harmonic_term = np.log(dim) + euler_gamma
+            
+            bracket_term = gamma(1.5) * harmonic_term
+            
+        else:
+            # For alpha < 2, the discrete sum uses the generalized harmonic number approximation
+            riemann_term = zeta(alpha / 2.0)
+            finite_size_term = (dim**(1.0 - alpha / 2.0)) / (1.0 - alpha / 2.0)
+            
+            bracket_term = gamma(1.5) * (riemann_term + finite_size_term)
+            
+        # Final variance computation applies to both cases
+        variance = variance_scale * time_prefactor * bracket_term
+        
+        return variance
+
+
+
+    def compute_laplace_approx_variance_d_alpha(self, T):
+            """
+            Compute the asymptotic variance expansion in the regime where d^alpha = o(T).
+            The continuous transient term collapses entirely.
+            """
+            eta = self.schedule.get_base_lr()
+            alpha = self.model.exponent
+            L = 1.0
+            sigma = self.model.sigma
+            dim = self.model.dim  # Extracted but unused in this specific equation
+            tau = T / (dim**alpha)
+
+            print(f"tau = {tau}, alpha = {alpha}, eta = {eta}, T = {T}, dim = {dim}")
+
+            # Prevent division by zero based on the condition alpha != 2
+            if alpha == 2.0:
+                raise ValueError("This variance formula is only valid for alpha != 2")
+
+
+            # Precompute the isolated prefactor to get V_t
+            prefactor = (L**2 * sigma**2 * eta**2) / (2 * alpha)
+            
+            # Precompute recurring factors
+            alpha_factor = alpha / (alpha - 2)
+            gamma_3_2 = gamma(1.5)
+            
+            # Compute the non-regularized lower incomplete gamma function
+            # scipy's gammainc gives P(a,x) = gamma(a,x) / Gamma(a), so we multiply back
+            lower_inc_gamma = gammainc(1.5, eta * L * tau) * gamma_3_2
+            
+            # Calculate the first main term inside the expansion
+            #term1 = (tau**1.5) * alpha_factor * lower_inc_gamma * (T**(-0.5))
+            #CORRECTION?
+            term1 = 0
+
+
+            # Calculate exponents and components for the second main term
+            exp_power = (alpha - 2) / (2 * alpha)
+            
+            part_a = gamma_3_2 / ((eta * L)**1.5)
+            
+            part_b_num = ((1.0 / T)**exp_power) * gamma(exp_power + 1.5)
+            part_b_den = (eta * L)**(exp_power + 1.5)
+            
+            term2 = alpha_factor * (part_a - (part_b_num / part_b_den)) * (T**(-0.5))
+            
+            # Combine everything to isolate the final variance (V_t)
+            v_t = prefactor * (term1 + term2)
+            
+            return v_t
 #End of class definitions
 
 
@@ -200,3 +294,184 @@ def compute_different_sigmas(T, model, x0, Delta, beta, sigmas, schedule_type="c
         print(f"Laplace risk approximation for sigma={sigma} computed.")
         
     return results, real_approx
+
+
+class SlockLinear(AsymptoticsAnalysis):
+    
+    def __init__(self, model: PowerLawRegression, x0, beta, T_max=100000, optimize=False, base_lr=0.01):
+        super().__init__(model, x0, beta)
+        print(f"Initializing Laplace_linear with T_max={T_max} for setup...")
+        self._setup_for_T(T_max, optimize=optimize, base_lr=base_lr) 
+
+    
+
+    def _setup_for_T(self, T, optimize=False, base_lr=0.01):
+        """Configure the schedule and computations for a specific horizon T."""
+        self.schedule = WSDSchedule(steps=T, base_lr=base_lr, cooldown_len=1.)
+        self.sgd = SGD(self.model, self.x0, self.schedule)
+        self.computations = RiskComputations(
+            self.model, self.x0, [self.schedule], ["linear"], sgd_class=SGD
+        )
+        
+        # Optimize learning rate specifically for this T
+        if optimize:
+            self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)
+
+    def _update_schedule_for_T(self, T):
+        """Update the schedule and re-optimize eta for a new T."""
+        assert self.schedule is not None, "Schedule must be initialized before updating."
+        self.schedule = WSDSchedule(steps=T, base_lr=self.schedule.get_base_lr(), cooldown_len=1.)
+        self.sgd.schedule = self.schedule
+
+
+    def compute_slock_approx_bias(self, T, t, m_exponent, m_constant):
+        """
+        Compute the bias term for the constant schedule using the SLOCK approximation.
+        Updated to match the exact mathematical formulation for the denominator.
+        """
+        eta = self.schedule.get_base_lr()
+        alpha = self.model.exponent
+        L = 1.0
+        
+        # Calculate the Trace of Lambda (sum of eigenvalues)
+        tr_lambda = np.sum(self.model.Lambda_vals)
+        
+        # C corresponds to the exponent: ((beta - 1) / alpha) + 1
+        C = (m_exponent - 1) / alpha + 1
+        
+        # Compute the new base for the denominator: eta * L * T * (1 - (eta * Tr(Lambda)) / 3)
+        denom_base = eta * L * T * (1 - (eta * tr_lambda) / 3.0)
+        
+        # Assemble the final bias formula
+        bias = (m_constant / (2 * alpha)) * (gamma(C) / (denom_base ** C))
+        
+        return bias
+
+    def compute_slock_approx_variance(self, T, t):
+        """
+        Compute the asymptotic equivalent for the variance component of the Excess Risk
+        under a linear schedule. Matches the exact mathematical formulation 
+        incorporating the L/i^alpha projection and the phase transition at alpha = 2.
+        """
+        from scipy.integrate import quad
+        from scipy.special import gamma, zeta
+        import numpy as np
+
+        eta = self.schedule.get_base_lr() 
+        sigma_sq = self.model.sigma**2
+        alpha = self.model.exponent
+        L = 1.0
+        
+        if alpha < 2.0:
+            
+            # Calculate the Trace of Lambda (sum of eigenvalues)
+            tr_lambda = np.sum(self.model.Lambda_vals)
+            
+            # Define the integrand for I_{alpha, eta}
+            def integrand(x):
+                term1 = x ** ((2.0 - 2.0 * alpha) / alpha)
+                term2 = (1.0 - (eta * tr_lambda / 3.0) * x) ** ((1.0 - 2.0 * alpha) / alpha)
+                return term1 * term2
+                
+            I_val, _ = quad(integrand, 0.0, 1.0)
+            
+            prefix = (L**2 * eta**2 * sigma_sq) / alpha
+            gamma_term = gamma(2.0 - 1.0 / alpha)
+            eta_L_term = (eta * L) ** ((1.0 - 2.0 * alpha) / alpha)
+            T_term = T ** ((1.0 - alpha) / alpha)
+            
+            variance = 0.5*prefix * gamma_term * eta_L_term * I_val * T_term
+            
+        elif alpha > 2.0:
+           
+            prefix = np.sqrt(np.pi) / 4.0
+            L_eta_term = np.sqrt(L * eta)
+            # scipy.special.zeta(x) computes the Riemann Zeta function
+            zeta_term = zeta(alpha / 2.0) 
+            T_term = T ** (-0.5)
+            
+            variance = 0.5*prefix * L_eta_term * sigma_sq * zeta_term * T_term
+            
+        else:
+            # Exact phase transition edge case (alpha == 2.0)
+            raise ValueError("alpha = 2.0 is the exact phase transition and requires the logarithmic O(T^{-1/2} ln(T)) equivalent.")
+            
+        return variance
+
+
+    compute_laplace_approx_bias = compute_slock_approx_bias
+    compute_laplace_approx_variance = compute_slock_approx_variance
+
+    def compute_laplace_approx_risk_for_T(self, T,t, m_exponent, m_constant, separate_bias_variance=False):
+        """Setup for T, optimize eta, and compute Lagrange approximate risk."""
+        self._update_schedule_for_T(T)
+        t = T - 1  # Evaluate at the last step of the schedule
+        bias = self.compute_slock_approx_bias(T, t, m_exponent, m_constant)
+        variance = self.compute_slock_approx_variance(T, t)
+        if separate_bias_variance:
+            return bias, variance
+        return bias + variance
+
+    def compute_slock_approx_risk(self, T, m_constant, m_exponent=None):
+        """Compute the SLOCK approximate risk for the WSD schedule at the last step.""" 
+        if m_exponent is None:
+            m_exponent = self.beta
+        self._update_schedule_for_T(T)
+        bias = self.compute_slock_approx_bias(T, T - 1, m_exponent, m_constant)
+        variance = self.compute_slock_approx_variance(T, T - 1)
+        return bias + variance
+    
+    def compute_best_slock_eta(self, T, m_constant):
+        """
+        Compute the optimal learning rate (eta^*) for the Linear schedule
+        using the exact closed-form SLOCK approximations.
+        """
+        beta = self.beta
+        Delta = m_constant
+        alpha = self.model.exponent
+        sigma_sq = self.model.sigma**2
+        L = 1.0
+
+        # Recurring bias exponent omega
+        omega = (alpha + beta - 1.0) / alpha
+
+        if 1.0 < alpha < 2.0:
+            # ---------------------------------------------------------
+            # Regime 1 < alpha < 2
+            # ---------------------------------------------------------
+            
+            # Compute the exact limit of the spatial integral I_{alpha, 0}
+            I_alpha_0 = alpha / (2.0 - alpha)
+            
+            # Compute optimal eta components
+            numerator = omega * alpha * Delta * gamma(omega)
+            denominator = sigma_sq * gamma(2.0 - 1.0 / alpha) * I_alpha_0 * (L ** (beta / alpha))
+            
+            prefix = (numerator / denominator) ** (alpha / (alpha + beta))
+            exponent = -beta / (alpha + beta)
+            
+            eta_star = prefix * (T ** exponent)
+            
+        elif alpha > 2.0:
+            # ---------------------------------------------------------
+            # Regime alpha > 2
+            # ---------------------------------------------------------
+            
+            numerator = 8.0 * omega * Delta * gamma(omega)
+            
+            # L exponent: (alpha + 2*beta - 2) / (2*alpha)
+            L_pow = (alpha + 2.0 * beta - 2.0) / (2.0 * alpha)
+            denominator = alpha * np.sqrt(np.pi) * sigma_sq * zeta(alpha / 2.0) * (L ** L_pow)
+            
+            prefix_pow = (2.0 * alpha) / (3.0 * alpha + 2.0 * beta - 2.0)
+            prefix = (numerator / denominator) ** prefix_pow
+            
+            exponent = (2.0 - alpha - 2.0 * beta) / (3.0 * alpha + 2.0 * beta - 2.0)
+            
+            eta_star = prefix * (T ** exponent)
+            
+        else:
+            # Handle alpha <= 1 or alpha == 2
+            raise ValueError("Alpha must be strictly in (1, 2) or strictly > 2 for this closed-form approximation.")
+
+        return eta_star
