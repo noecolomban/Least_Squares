@@ -13,6 +13,7 @@ class Mode(StrEnum):
     TRUE = "true"
     LAPLACE_ONLY = "laplace"
     SLOCK = "slock"
+    NORMAL = "normal"
 
 def gamma_prime(x):
     """Compute the derivative of the gamma function using the digamma function."""
@@ -305,7 +306,7 @@ class AsymptoticsAnalysis(ABC):
                     bias, var = self.compute_true_approx_biases_and_variances([T], K=K)
                     diagonal_variance[(alpha, T)] = var[T]
                     diagonal_bias[(alpha, T)] = bias[T]
-                elif mode == Mode.TRUE:
+                elif mode == Mode.TRUE or mode == Mode.NORMAL:
                     bias, var = self.compute_true_biases_and_variances([T], K=K)
                     diagonal_variance[(alpha, T)] = var[T]
                     diagonal_bias[(alpha, T)] = bias[T]
@@ -316,7 +317,7 @@ class AsymptoticsAnalysis(ABC):
                 elif mode == Mode.LAPLACE_ONLY:
                     pass  # Only compute Laplace variance, do nothing for diagonal variance
                 else:
-                    raise ValueError(f"Unsupported mode: {mode}. Use Mode.DIAGONAL, Mode.TRUE, Mode.SLOCK, or Mode.LAPLACE_ONLY.")
+                    raise ValueError(f"Unsupported mode: {mode}. Use Mode.DIAGONAL, Mode.TRUE, Mode.NORMAL, Mode.SLOCK, or Mode.LAPLACE_ONLY.")
 
         if mode == Mode.LAPLACE_ONLY:
             return laplace_variance
