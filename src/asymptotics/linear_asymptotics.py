@@ -8,6 +8,8 @@ from src.SGD import SGD
 import numpy as np
 from scheduled import WSDSchedule
 from scipy.special import gamma, gammainc, gammaincc, zeta
+from scipy.optimize import minimize_scalar
+from scipy.integrate import quad
 
 
 
@@ -324,7 +326,7 @@ class SlockLinear(AsymptoticsAnalysis):
         self.sgd.schedule = self.schedule
 
 
-    def compute_slock_approx_bias(self, T, t, m_exponent, m_constant):
+    def compute_slock_approx_bias(self, T, t, m_exponent, m_constant, batch=1):
         """
         Compute the bias term for the constant schedule using the SLOCK approximation.
         Updated to match the exact mathematical formulation for the denominator.
@@ -340,14 +342,14 @@ class SlockLinear(AsymptoticsAnalysis):
         C = (m_exponent - 1) / alpha + 1
         
         # Compute the new base for the denominator: eta * L * T * (1 - (eta * Tr(Lambda)) / 3)
-        denom_base = eta * L * T * (1 - (eta * tr_lambda) / 3.0)
+        denom_base = eta * L * T * (1 - (eta * tr_lambda) / (3.0* batch))
         
         # Assemble the final bias formula
         bias = (m_constant / (2 * alpha)) * (gamma(C) / (denom_base ** C))
         
         return bias
 
-    def compute_slock_approx_variance(self, T, t):
+    def compute_slock_approx_variance(self, T, t, batch=1):
         """
         Compute the asymptotic equivalent for the variance component of the Excess Risk
         under a linear schedule. Matches the exact mathematical formulation 
@@ -370,7 +372,7 @@ class SlockLinear(AsymptoticsAnalysis):
             # Define the integrand for I_{alpha, eta}
             def integrand(x):
                 term1 = x ** ((2.0 - 2.0 * alpha) / alpha)
-                term2 = (1.0 - (eta * tr_lambda / 3.0) * x) ** ((1.0 - 2.0 * alpha) / alpha)
+                term2 = (1.0 - (eta * tr_lambda / (3.0 * batch)) * x) ** ((1.0 - 2.0 * alpha) / alpha)
                 return term1 * term2
                 
             I_val, _ = quad(integrand, 0.0, 1.0)
@@ -380,7 +382,7 @@ class SlockLinear(AsymptoticsAnalysis):
             eta_L_term = (eta * L) ** ((1.0 - 2.0 * alpha) / alpha)
             T_term = T ** ((1.0 - alpha) / alpha)
             
-            variance = 0.5*prefix * gamma_term * eta_L_term * I_val * T_term
+            variance = 0.5*prefix * gamma_term * eta_L_term * I_val * T_term / batch
             
         elif alpha > 2.0:
            
@@ -390,7 +392,7 @@ class SlockLinear(AsymptoticsAnalysis):
             zeta_term = zeta(alpha / 2.0) 
             T_term = T ** (-0.5)
             
-            variance = 0.5*prefix * L_eta_term * sigma_sq * zeta_term * T_term
+            variance = 0.5*prefix * L_eta_term * sigma_sq * zeta_term * T_term / batch
             
         else:
             # Exact phase transition edge case (alpha == 2.0)
@@ -475,3 +477,77 @@ class SlockLinear(AsymptoticsAnalysis):
             raise ValueError("Alpha must be strictly in (1, 2) or strictly > 2 for this closed-form approximation.")
 
         return eta_star
+    
+
+
+    def compute_exact_eta(self, T, m_constant, batch=1):
+        """Without a closed form, piecewise variance, exact integration for alpha < 2"""
+        beta = self.beta
+        Delta = m_constant
+        alpha = self.model.exponent
+        sigma_sq = self.model.sigma**2
+        L = 1.0
+        tr = np.sum(self.model.Lambda_vals) 
+        
+        # New constant for the term inside the parenthesis: tr(Lambda) / 3b
+        c_tr = tr / (3.0 * batch)
+        
+        # --- Bias Constants ---
+        p = (beta - 1.0) / alpha + 1.0
+        c_bias_num = (L * Delta / (2.0 * alpha)) * gamma(p)
+        
+        # --- Variance Constants ---
+        if alpha < 2.0:
+            # Precompute constants for alpha < 2
+            # Note: eta**2 * eta**((1-2a)/a) simplifies to eta**(1/alpha)
+            c_var_lt2 = ((L**2 * sigma_sq) / (2.0 * alpha * batch)) * \
+                        gamma(2.0 - 1.0/alpha) * \
+                        (L**((1.0 - 2.0*alpha)/alpha)) * \
+                        (T**((1.0 - alpha)/alpha))
+        elif alpha > 2.0:
+            # Precompute constants for alpha > 2
+            c_var_gt2 = (np.sqrt(np.pi) / 8.0) * np.sqrt(L) * (sigma_sq / batch) * \
+                        zeta(alpha / 2.0) * (T**(-0.5))
+        else:
+            raise ValueError("The formula is not defined for alpha == 2.0")
+
+        def risk(eta):
+            """Compute the total risk B_T + V_T for a given learning rate eta."""
+            # 1. Bias Term
+            term_in_brackets = eta * L * T * (1.0 - c_tr * eta)
+            bias = c_bias_num / (term_in_brackets ** p)
+            
+            # 2. Variance Term
+            if alpha < 2.0:
+                # Define the integrand for the specific eta
+                def integrand(x):
+                    return (x ** ((2.0 - 2.0*alpha)/alpha)) * \
+                           ((1.0 - c_tr * eta * x) ** ((1.0 - 2.0*alpha)/alpha))
+                
+                # Numerically integrate from 0 to 1
+                I_val, _ = quad(integrand, 0.0, 1.0)
+                
+                var = c_var_lt2 * (eta ** (1.0 / alpha)) * I_val
+            else:
+                var = c_var_gt2 * np.sqrt(eta)
+                
+            return bias + var
+        
+        # Define the strict bounds (now bounded by 3b / tr instead of 2b / tr)
+        epsilon = 1e-12
+        upper_bound = (1.0 / c_tr) - epsilon
+        
+        # Perform bounded numerical optimization
+        result = minimize_scalar(
+            risk, 
+            bounds=(epsilon, upper_bound), 
+            method='bounded',
+            options={'xatol': 1e-10} # High precision tolerance
+        )
+        
+        if result.success:
+            optimal_eta = result.x
+            # minimum_risk = result.fun
+            return optimal_eta
+        else:
+            raise ValueError("Optimization failed to converge.")

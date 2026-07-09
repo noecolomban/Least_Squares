@@ -50,6 +50,25 @@ class BaseSGD(ABC):
             plt.legend()
         return self.losses
     
+
+    def sample_slock(self, label="SGD", show=True, n_samples=1):
+        loss = np.zeros((n_samples, self.T))
+        for n in range(n_samples):
+            x = self.x0
+            Phi, Y = self.model.generate_slock(n_samples=self.T)
+            for t in range(self.T):
+                phi, y = Phi[t].reshape(-1,1), Y[t]
+                g = phi @ (np.dot(phi.T , x) - y)
+                x = x - self.get_step(t) * g
+                loss[n, t] = self.model.compute_risk(x)
+        self.losses = np.mean(loss, axis=0)
+        if show:
+            plt.plot(self.losses, label=label)
+            plt.xlabel("Epoch")
+            plt.ylabel("loss")
+            plt.legend()
+        return self.losses
+    
     def compute_theoretical_risk(self, t) -> float:
         """
         Compute the risk at step T efficiently in O(T).
@@ -122,7 +141,7 @@ class SGD(BaseSGD):
             return np.array(risks)
     
 
-    def compute_all_slock_risks(self, separate_bias_variance=False) -> np.ndarray:
+    def compute_all_slock_risks(self, batch=1, separate_bias_variance=False) -> np.ndarray:
         """
         Computes the theoretical risk at each step for the Slock model.
         Optimized for O(d) execution time using purely diagonal updates.
@@ -159,13 +178,13 @@ class SGD(BaseSGD):
             
             if separate_bias_variance:
                 biases.append(0.5 * bias_part)
-                variances.append(0.5 * variance_part)
+                variances.append(0.5 * variance_part / batch)  # Adjust variance for batch size
                 
             if t < self.T - 1:
                 lr = self.get_step(t)
                 
                 # Slock state multiplier: I - 2*eta*Lambda + eta^2*tr(Lambda)*Lambda
-                slock_factor = 1.0 - 2.0 * lr * lambda_vec + (lr**2) * tr_Lambda * lambda_vec
+                slock_factor = 1.0 - 2.0 * lr * lambda_vec + (lr**2) * tr_Lambda / batch * lambda_vec + (lr**2)*(1 - 1/batch) * lambda_vec**2
                 
                 # Decoupled Slock updates
                 # Bias simply decays through the slock factor

@@ -120,7 +120,7 @@ class AsymptoticsAnalysis(ABC):
             variances[T] = list_variance[t]
         return biases, variances
     
-    def compute_slock_biases_and_variances(self, T_values, K=1):
+    def compute_slock_biases_and_variances(self, T_values, batch=1, K=1):
         """Compute slock biases and variances."""
         assert 0<= K <= 1, "K should be between 0 and 1 to ensure t=K*T is a valid step within the schedule."
 
@@ -128,7 +128,7 @@ class AsymptoticsAnalysis(ABC):
         variances = {}
         for T in T_values:
             self._update_schedule_for_T(T)  # Update schedule for new T
-            list_bias, list_variance = self.sgd.compute_all_slock_risks(separate_bias_variance=True)
+            list_bias, list_variance = self.sgd.compute_all_slock_risks(batch=batch, separate_bias_variance=True)
             t = int(K * (T-1))  
             biases[T] = list_bias[t]
             variances[T] = list_variance[t]

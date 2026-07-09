@@ -26,7 +26,7 @@ diff0 = Delta * np.array([1/i**beta for i in range(1, dim+1)])
 x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 optimize = False
-T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000]
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000]
 #T_values = [10, 20, 50, 100, 200, 500, 1000, 2000]
 list_alphas = [1.01, 1.1, 1.5, 2.5, 10]
 
@@ -142,8 +142,11 @@ print(ratios_variance)
 print(ratios_bias)
 # %%
 #COMPARE TRUE SLOCK vs NORMAL
+dim = 100
+x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=1.3)
 T_values = [100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000]
+
 
 list_alphas = [1.01, 1.3, 1.5, 2.5, 10]
 
@@ -154,18 +157,22 @@ true_normal_bias, true_normal_variance = {}, {}
 
 for alpha in list_alphas:
     slock_linear._update_model_for_alpha(alpha)
-    slock_linear._setup_for_T(max(T_values))
-    eta = slock_linear.compute_best_slock_eta(max(T_values), Delta)
-    true_slock_bias[alpha], true_slock_variance[alpha] = slock_linear.compute_slock_biases_and_variances(T_values)
-    true_normal_bias[alpha], true_normal_variance[alpha] = slock_linear.compute_true_biases_and_variances(T_values)
+    true_slock_bias[alpha], true_slock_variance[alpha] = {}, {}
+    true_normal_bias[alpha], true_normal_variance[alpha] = {}, {}
+    for T in T_values:
+        print(f"Computing true SLOCK and Normal biases and variances for alpha={alpha}, T={T}...")
+        eta = slock_linear.compute_best_slock_eta(T, Delta)
+        slock_linear._setup_for_T(T, base_lr=eta)
+        true_slock_bias[alpha][T], true_slock_variance[alpha][T] = slock_linear.compute_slock_biases_and_variances([T])
+        true_normal_bias[alpha][T], true_normal_variance[alpha][T] = slock_linear.compute_true_biases_and_variances([T])
 #%% PLOT SLOCK vs NORMAL
 
 plt.figure(figsize=(12, 8))
 colors = plt.cm.viridis(np.linspace(0, 1, len(list_alphas)))
 for alpha in list_alphas:
     color = colors[list_alphas.index(alpha)]
-    plt.plot(T_values, [true_slock_variance[alpha][T] for T in T_values], label=f"True SLOCK Variance (alpha={alpha})", marker='o', color=color)
-    plt.plot(T_values, [true_normal_variance[alpha][T] for T in T_values], label=f"True Normal Variance (alpha={alpha})", marker='x', linestyle='--', color=color)
+    plt.plot(T_values, [true_slock_variance[alpha][T][T] for T in T_values], label=f"True SLOCK Variance (alpha={alpha})", marker='o', color=color)
+    plt.plot(T_values, [true_normal_variance[alpha][T][T] for T in T_values], label=f"True Normal Variance (alpha={alpha})", marker='x', linestyle='--', color=color)
 plt.xscale('log')
 plt.yscale('log')
 plt.xlim(100, max(T_values))
@@ -180,8 +187,8 @@ plt.show()
 plt.figure(figsize=(12, 8))
 for alpha in list_alphas:
     color = colors[list_alphas.index(alpha)]
-    plt.plot(T_values, [true_slock_bias[alpha][T] for T in T_values], label=f"True SLOCK Bias (alpha={alpha})", marker='o', color=color)
-    plt.plot(T_values, [true_normal_bias[alpha][T] for T in T_values], label=f"True Normal Bias (alpha={alpha})", marker='x', linestyle='--', color=color)
+    plt.plot(T_values, [true_slock_bias[alpha][T][T] for T in T_values], label=f"True SLOCK Bias (alpha={alpha})", marker='o', color=color)
+    plt.plot(T_values, [true_normal_bias[alpha][T][T] for T in T_values], label=f"True Normal Bias (alpha={alpha})", marker='x', linestyle='--', color=color)
 plt.xscale('log')
 plt.yscale('log')
 plt.xlim(100, max(T_values))
@@ -194,8 +201,8 @@ plt.savefig(f"images/slock/_LINEAR_true_bias_trajectories_comparison_.pdf")
 plt.show()  
 
 # %%
-ratios_variance = {alpha: {T: true_slock_variance[alpha][T] / true_normal_variance[alpha][T] for T in T_values} for alpha in list_alphas}
-ratios_bias = {alpha: {T: true_slock_bias[alpha][T] / true_normal_bias[alpha][T] for T in T_values} for alpha in list_alphas}
+ratios_variance = {alpha: {T: true_slock_variance[alpha][T][T] / true_normal_variance[alpha][T][T] for T in T_values} for alpha in list_alphas}
+ratios_bias = {alpha: {T: true_slock_bias[alpha][T][T] / true_normal_bias[alpha][T][T] for T in T_values} for alpha in list_alphas}
 plt.figure(figsize=(12, 8))
 for alpha in list_alphas:
     color = colors[list_alphas.index(alpha)]
@@ -204,7 +211,7 @@ for alpha in list_alphas:
 plt.xscale('log')
 plt.xlim(100, max(T_values))
 plt.xlabel("T (log scale)")
-plt.ylim(0.5, 1.3)
+plt.ylim(0.85, 1.05)
 plt.ylabel("Ratio")
 plt.title(f"Variance and Bias Ratio Trajectories (SLOCK/Normal) optimized eta, different alphas")
 plt.legend()

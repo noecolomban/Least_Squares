@@ -17,7 +17,7 @@ from src.utils import save_dict_to_json
 # %%
 dim = 100
 sigma = 1
-exponent = 2 #alpha
+exponent = 1.5 #alpha
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
 
 Delta = 1
@@ -313,4 +313,78 @@ for alpha in list_alphas:
         plt.savefig(f"images/slock/_WSD_risk_cooldown_comparison_alpha={alpha}_eta={eta}.pdf")
     plt.show()
 
+# %%
+
+
+
+
+#COMPARE BEST ETAS vs NUMERICAL OPTIMIZATION
+alphas = [1+1e-6, 1.001, 1.01, 1.1, 1.5, 2.5, 10, 20 , 50]
+best_etas = {}
+exact_etas = {}
+T= 100000
+for alpha in alphas:
+    slock_wsd._update_model_for_alpha(alpha)  # Update model for the specific alpha
+    slock_wsd._setup_for_T(T, base_lr=0.001)  # Setup for T with a placeholder learning rate
+    best_etas[alpha] = slock_wsd.compute_best_slock_eta(T, m_constant=Delta)
+    exact_etas[alpha] = slock_wsd.compute_exact_eta(T, m_constant=Delta)
+# %%
+print("Best SLOCK Etas:", best_etas)
+print("Exact Etas (Numerical Optimization):", exact_etas)
+plt.figure(figsize=(12, 8))
+plt.plot(alphas, [best_etas[alpha] for alpha in alphas], label="Best SLOCK Eta", marker='o')
+plt.plot(alphas, [exact_etas[alpha] for alpha in alphas], label="Exact Eta (Numerical Optimization)", marker='x')
+plt.xlabel("Alpha")
+plt.ylabel("Eta")
+plt.title(f"Comparison of Best SLOCK Eta vs Exact Eta (Numerical Optimization); T={T}, Delta={Delta}")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/slock/CONSTANT_BATCH_comparison_best_vs_exact_eta_T={T}_Delta={Delta}.pdf")
+plt.show()
+
+ratios = {alpha: best_etas[alpha] / exact_etas[alpha] for alpha in alphas}
+plt.figure(figsize=(12, 8))
+plt.plot(alphas, [ratios[alpha] for alpha in alphas], label="Ratio of Best SLOCK Eta to Exact Eta", marker='o')
+plt.xlabel("Alpha")
+plt.ylabel("Ratio")
+plt.xscale('log')
+plt.title(f"Ratio of Best SLOCK Eta to Exact Eta (Numerical Optimization); T={T}, Delta={Delta}")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/slock/CONSTANT_BATCH_comparison_eta_ratio_T={T}_Delta={Delta}.pdf")
+plt.show()
+# %%
+
+
+#FIGURE 11 Fabian
+T_list = [400, 1600, 6400, 25600, 102400]
+c_list = np.linspace(0.01, 1.0, 100)
+colors = plt.get_cmap("viridis")(np.linspace(0, 1, len(T_list)))
+
+results_eta_ratio = {}
+for T in T_list:
+    results_eta_ratio[T] = {}
+    slock_wsd._setup_for_T(T, cooldown_len=1.0)  # Setup for T with a placeholder learning rate
+    eta_1 = slock_wsd.compute_best_slock_eta(T=T, m_constant=Delta, c=1.0)  # Compute eta_star for cooldown length 1
+    for c in c_list:
+        slock_wsd._setup_for_T(T, cooldown_len=c) 
+        eta_star = slock_wsd.compute_best_slock_eta(T=T, m_constant=Delta, c=c)
+        results_eta_ratio[T][c] = np.log(eta_1 / eta_star)
+        print(f"T={T}, cooldown={c}, eta_star={eta_star}, eta_1={eta_1}, ratio={results_eta_ratio[T][c]}")
+
+plt.figure(figsize=(12, 8))
+for T in T_list:
+    color = colors[T_list.index(T)]
+    plt.plot(c_list, [results_eta_ratio[T][c] for c in c_list], label=f"T={T}", marker='o', color=color)
+plt.xscale('linear')
+plt.xlabel("Cooldown Length (c)")
+plt.ylabel("log(eta_star(1) / eta_star(c))")
+plt.title(f"Effect of Cooldown Length on Optimal Learning Rate (eta_star) for Different T")
+plt.legend()
+plt.grid()
+plt.savefig(f"images/slock/CONSTANT_BATCH_eta_ratio_vs_cooldown.pdf")
+plt.show()
+
+
+save_dict_to_json(results_eta_ratio, folder=f"figures", filename="eta_ratio_vs_cooldown.json")
 # %%

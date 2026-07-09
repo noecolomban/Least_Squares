@@ -46,6 +46,7 @@ class LinearRegression:
         self.Y = self.phi @ self.x_star + epsilon
         return self.phi, self.Y
 
+
     def fit(self):
         """Compute the least squares estimator (x_hat)"""
         if self.phi is None:
@@ -137,6 +138,42 @@ class PowerLawRegression(LinearRegression):
         H = Q @ Lambda_matrix @ Q.T
         return H
     
+    def generate_slock(self, n_samples=None):
+        if n_samples is None:
+            n_samples = self.n_samples
+            
+        alpha = self.exponent
+        sigma = self.sigma
+        L = 1.0
+        dim = self.dim
+        x_star = self.x_star
+        
+        indices = np.arange(1, dim + 1)
+        lambdas = L / (indices ** alpha)
+        
+        trace_H = np.sum(lambdas)
+        probs = lambdas / trace_H
+        
+        active_coords = np.random.choice(dim, size=n_samples, p=probs)
+        
+        signs = np.random.choice([-1.0, 1.0], size=n_samples)
+        
+        phi_eigen = np.zeros((n_samples, dim))
+        mu_magnitude = np.sqrt(trace_H)
+        phi_eigen[np.arange(n_samples), active_coords] = signs * mu_magnitude
+        
+        phi = phi_eigen @ self.Q.T
+        
+        epsilon = np.random.normal(0.0, sigma, size=(n_samples, 1))
+        
+        y = phi @ x_star + epsilon
+        
+        self.phi = phi
+        self.Y = y
+        
+        return phi, y
+
+
 
 def compute_power_x0(dim, x_star, Q, beta=1):
     """Compute an initial point x0 such that delta0 = 1/i**beta in the eigenvector space"""

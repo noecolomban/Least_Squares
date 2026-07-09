@@ -7,6 +7,7 @@ from scheduled import WSDSchedule
 from scipy.special import gamma, zeta
 from scipy.integrate import quad
 from src.utils import constant_zeta_correction
+from scipy.optimize import minimize_scalar
 
 class LaplaceWSD(AsymptoticsAnalysis):
     """Class for analyzing the Laplace approximation specifically for the WSD schedule."""
@@ -306,7 +307,7 @@ class SlockWSD(AsymptoticsAnalysis):
     
 
 
-    def compute_best_slock_eta(self, T, m_constant):
+    def compute_best_slock_eta(self, T, m_constant, c=None):
         """
         Compute the optimal learning rate (eta^*) for the WSD schedule
         using the exact closed-form SLOCK approximations.
@@ -316,7 +317,7 @@ class SlockWSD(AsymptoticsAnalysis):
         alpha = self.model.exponent
         sigma_sq = self.model.sigma**2
         L = 1.0
-        cl = self.cooldown_len
+        cl = c if c is not None else self.cooldown_len
 
         # Recurring bias exponent omega
         omega = (alpha + beta - 1.0) / alpha
@@ -366,3 +367,109 @@ class SlockWSD(AsymptoticsAnalysis):
             raise ValueError("Alpha must be strictly in (1, 2) or strictly > 2 for this closed-form approximation.")
 
         return eta_star
+    
+
+    def compute_exact_eta(self, T, m_constant, batch=1):
+        """
+        Computes the optimal learning rate for a Warmup-Stable-Decay (WSD) schedule
+        by dynamically computing A, B, D, kappa_1, and kappa_2 internally.
+        """
+        # Retrieve decay fraction parameter from instance attributes
+        c = self.cooldown_len
+        
+        if not (0 < c < 1):
+            raise ValueError("Decay fraction 'c' (self.cooldown_len) must be strictly between 0 and 1.")
+
+        beta = self.beta
+        Delta = m_constant
+        alpha = self.model.exponent
+        sigma_sq = self.model.sigma**2
+        L = 1.0
+        tr = np.sum(self.model.Lambda_vals) 
+        
+        # Helper constants
+        c_tr_3b = tr / (3.0 * batch)
+        c_tr_b = tr / batch
+        
+        # --- Bias Constants ---
+        p = (beta - 1.0) / alpha + 1.0
+        c_bias_num = (L * Delta / (2.0 * alpha)) * gamma(p)
+        
+        # --- Variance Constants ---
+        if alpha < 2.0:
+            c_var_lt2_common = (L**2 * sigma_sq) / (2.0 * alpha * batch)
+            gamma_term1 = gamma((alpha - 1.0) / alpha)
+            gamma_term2 = gamma(2.0 - 1.0 / alpha)
+            power_alpha_1 = (1.0 - alpha) / alpha
+            power_1_2alpha = (1.0 - 2.0 * alpha) / alpha
+        elif alpha > 2.0:
+            c_var_gt2 = (np.sqrt(np.pi) / 8.0) * np.sqrt(L) * (sigma_sq / batch) * \
+                        zeta(alpha / 2.0) * ((c * T)**(-0.5))
+        else:
+            raise ValueError("The formula is not defined for alpha == 2.0")
+
+        def risk(eta):
+            """Compute the total risk B_T + V_T for a given learning rate eta."""
+            
+            # 1. Bias Term
+            term_in_brackets = eta * L * T * (2.0 - c - eta * c_tr_b * (1.0 - 2.0 * c / 3.0))
+            bias = c_bias_num / (term_in_brackets ** p)
+            
+            # 2. Variance Term
+            if alpha < 2.0:
+                # Dynamically compute A and B
+                A = 2.0 * eta * L
+                # Using eta**2 to maintain mathematical consistency with kappa_2 being positive
+                B = (eta**2) * c_tr_b * L 
+                
+                D = (B / 3.0) - (A / 2.0)
+                
+                kappa_1 = (A - B) * (1.0 - c) - c * D
+                kappa_2 = -c * D
+                
+                # Prevent ZeroDivisionError if the optimizer probes the exact point where A == B
+                B_minus_A = B - A
+                if abs(B_minus_A) < 1e-15:
+                    B_minus_A = 1e-15 if B_minus_A >= 0 else -1e-15
+                
+                # Term 1 of variance (alpha < 2)
+                term_1_var = c_var_lt2_common * (eta**2 / B_minus_A) * gamma_term1 * \
+                             (kappa_1**power_alpha_1 - kappa_2**power_alpha_1)
+                
+                # Term 2 of variance (alpha < 2) requires integration
+                def integrand(x):
+                    return (x ** ((2.0 - 2.0*alpha)/alpha)) * \
+                           ((1.0 - eta * c_tr_3b * x) ** power_1_2alpha)
+                
+                I_val, _ = quad(integrand, 0.0, 1.0)
+                
+                term_2_var = c_var_lt2_common * (eta**2) * gamma_term2 * \
+                             ((eta * L)**power_1_2alpha) * I_val * (c**power_alpha_1)
+                
+                # Combine and apply T factor
+                var = (term_1_var + term_2_var) * (T**power_alpha_1)
+            else:
+                # Variance alpha > 2
+                var = c_var_gt2 * np.sqrt(eta)
+                
+            return bias + var
+        
+        # --- Strict bounds computation ---
+        upper_bound_var = 1.0 / c_tr_3b
+        upper_bound_bias = (2.0 - c) / (c_tr_b * (1.0 - 2.0 * c / 3.0))
+        
+        epsilon = 1e-12
+        upper_bound = min(upper_bound_var, upper_bound_bias) - epsilon
+        
+        # Perform bounded numerical optimization
+        result = minimize_scalar(
+            risk, 
+            bounds=(epsilon, upper_bound), 
+            method='bounded',
+            options={'xatol': 1e-10} 
+        )
+        
+        if result.success:
+            return result.x
+        else:
+            raise ValueError("Optimization failed to converge.")
