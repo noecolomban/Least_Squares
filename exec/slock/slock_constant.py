@@ -14,8 +14,8 @@ from src.asymptotics import (
 )
 from src.utils import save_dict_to_json
 # %%
-dim = 100
-sigma = 0.5
+dim = 1000
+sigma = 0.1
 exponent = 2 #alpha
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
 
@@ -26,7 +26,7 @@ diff0 = Delta * np.array([1/i**beta for i in range(1, dim+1)])
 x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 optimize = False
-T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000]
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000]
 list_alphas = [1.5, 2, 2.5]
 
 slock_constant = SlockConstant(model, x0)

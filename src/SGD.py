@@ -52,7 +52,8 @@ class BaseSGD(ABC):
     
 
     def sample_slock(self, label="SGD", show=True, n_samples=1):
-        loss = np.zeros((n_samples, self.T))
+        loss = np.zeros((n_samples, self.T+1))
+        loss[:, 0] = self.model.compute_risk(self.x0)
         for n in range(n_samples):
             x = self.x0
             Phi, Y = self.model.generate_slock(n_samples=self.T)
@@ -60,7 +61,7 @@ class BaseSGD(ABC):
                 phi, y = Phi[t].reshape(-1,1), Y[t]
                 g = phi @ (np.dot(phi.T , x) - y)
                 x = x - self.get_step(t) * g
-                loss[n, t] = self.model.compute_risk(x)
+                loss[n, t+1] = self.model.compute_risk(x)
         self.losses = np.mean(loss, axis=0)
         if show:
             plt.plot(self.losses, label=label)
