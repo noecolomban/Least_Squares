@@ -14,7 +14,7 @@ from src.asymptotics import (
 )
 from src.utils import save_dict_to_json
 # %%
-dim = 1000
+dim = 100
 sigma = 0.1
 exponent = 2 #alpha
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
@@ -27,7 +27,7 @@ x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 optimize = False
 T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000]
-list_alphas = [1.5, 2, 2.5]
+list_alphas = [1.4, 1.9, 2.5]
 
 slock_constant = SlockConstant(model, x0)
 mode = Mode.SLOCK
@@ -47,6 +47,10 @@ slock_variance_str = {str((alpha, T)): var for (alpha, T), var in slock_variance
 save_dict_to_json(slock_variance_str, folder=f"slock_constant_dim={dim}", filename="variance_trajectories.json")
 true_variance_str = {str((alpha, T)): var for (alpha, T), var in true_variance.items()}
 save_dict_to_json(true_variance_str, folder=f"slock_constant_dim={dim}", filename="true_variance_trajectories.json")
+slock_bias_str = {str((alpha, T)): bias for (alpha, T), bias in slock_bias.items()}
+save_dict_to_json(slock_bias_str, folder=f"slock_constant_dim={dim}", filename="bias_trajectories.json")
+true_bias_str = {str((alpha, T)): bias for (alpha, T), bias in true_bias.items()}
+save_dict_to_json(true_bias_str, folder=f"slock_constant_dim={dim}", filename="true_bias_trajectories.json")
 # %%
 ratios_variance = {key: slock_variance[key] / true_variance[key] for key in slock_variance.keys()}
 ratios_bias = {key: slock_bias[key] / true_bias[key] for key in slock_variance.keys()}
@@ -104,4 +108,44 @@ plt.legend()
 plt.grid()
 plt.savefig("images/slock/_CONSTANT_variance_bias_comparison.png")
 plt.show()
+# %%
+#ETAS
+T = 50000
+
+etas = np.logspace(-4, -1, 10)
+eta_stars = {}
+for alpha in list_alphas:
+    slock_constant._update_model_for_alpha(alpha)
+    eta_star = slock_constant.compute_best_slock_eta(T, m_constant=Delta)
+    eta_stars[alpha] = eta_star
+print(f"Optimal etas for T={T}: {eta_stars}")
+#%%
+risks = {}
+for alpha in list_alphas:
+    risks[alpha] = {}
+    slock_constant._update_model_for_alpha(alpha)
+    for eta in etas:
+        print(f"Computing risk for alpha={alpha}, eta={eta}...")
+        slock_constant._setup_for_T(T, base_lr=eta)
+        biases, variances = slock_constant.compute_slock_biases_and_variances([T])
+        risks[alpha][eta] = biases[T] + variances[T]
+# %%
+plt.figure(figsize=(12, 8))
+for alpha in list_alphas:
+    color = colors[list_alphas.index(alpha)]
+    plt.plot(etas, [risks[alpha][eta] for eta in etas], label=f"Risk (alpha={alpha})", marker='o', color=color)
+    plt.axvline(x=eta_stars[alpha], color=color, linestyle='--', label=f"Optimal eta (alpha={alpha})")
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel("eta (log scale)")
+plt.ylabel("Risk (log scale)")
+plt.title("Risk for Different Alphas (SLOCK)")
+plt.legend()
+plt.grid()
+plt.savefig("images/slock/_CONSTANT_eta_comparison.png")
+plt.show()
+
+save_dict_to_json({str(alpha): risks[alpha] for alpha in list_alphas}, folder=f"slock_constant_dim={dim}", filename="risks_for_different_etas.json")
+save_dict_to_json({str(alpha): eta_stars[alpha] for alpha in list_alphas}, folder=f"slock_constant_dim={dim}", filename="optimal_etas.json")
+
 # %%

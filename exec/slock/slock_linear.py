@@ -14,7 +14,7 @@ from src.asymptotics import (
 )
 from src.utils import save_dict_to_json
 # %%
-dim = 100
+dim = 1000
 sigma = 1
 exponent = 2 #alpha
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
@@ -28,17 +28,17 @@ x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 optimize = False
 T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000]
 #T_values = [10, 20, 50, 100, 200, 500, 1000, 2000]
-list_alphas = [1.1, 1.5, 2.5]
+list_alphas = [1.4, 1.9, 2.5]
 
-eta = 0.001
+eta = 0.00001
 slock_linear = SlockLinear(model, x0, beta=beta, T_max=max(T_values), optimize=optimize, base_lr=eta)
 mode = Mode.SLOCK
 #%%
 
 def changing_dim(T, alpha):
     #return int((T/100)**(1/alpha))
-    #return 100
-    return min(1000, int(100 * (T/10)**(1/alpha)))
+    return 100
+    #return min(1000, int(100 * (T/10)**(1/alpha)))
     #return min(T, 2000)
 
 #%% 
@@ -55,6 +55,12 @@ slock_variance, diagonal_variance, slock_bias, diagonal_bias = (
 )
 #%%
 
+save_dict_to_json({str((alpha, T)): var for (alpha, T), var in slock_variance.items()}, folder=f"slock_linear_dim={dim}", filename="variance_trajectories.json")
+save_dict_to_json({str((alpha, T)): var for (alpha, T), var in diagonal_variance.items()}, folder=f"slock_linear_dim={dim}", filename="true_variance_trajectories.json")
+save_dict_to_json({str((alpha, T)): bias for (alpha, T), bias in slock_bias.items()}, folder=f"slock_linear_dim={dim}", filename="bias_trajectories.json")
+save_dict_to_json({str((alpha, T)): bias for (alpha, T), bias in diagonal_bias.items()}, folder=f"slock_linear_dim={dim}", filename="true_bias_trajectories.json")
+
+#%%
 #Plot trajectories
 
 plt.figure(figsize=(12, 8))

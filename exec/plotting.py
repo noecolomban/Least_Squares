@@ -208,6 +208,108 @@ if __name__ == "__main__":
         )
 
 
-    sgd_vs_formula_linear()
+    def asymptotics_vs_true_constant():
+        results_var_true = read_dict_from_json(folder="slock_constant_dim=1000", filename="true_variance_trajectories.json")
+        results_var_approx = read_dict_from_json(folder="slock_constant_dim=1000", filename="variance_trajectories.json")
+        results_bias_true = read_dict_from_json(folder="slock_constant_dim=1000", filename="true_bias_trajectories.json")
+        results_bias_approx = read_dict_from_json(folder="slock_constant_dim=1000", filename="bias_trajectories.json")
+        print("Results loaded for Asymptotics vs True comparison.")
+        list_alphas = sorted(set(alpha for (alpha, T) in results_var_true.keys()))
+        T_values = sorted(set(T for (alpha, T) in results_var_true.keys()))
 
+        ratios_variance = {key: results_var_approx[key] / results_var_true[key] for key in results_var_true.keys()}
+        ratios_bias = {key: results_bias_approx[key] / results_bias_true[key] for key in results_bias_true.keys()}
+
+        for alpha in list_alphas:
+            plot(
+                X=T_values,
+                Y=[ratios_variance[(alpha, T)] for T in T_values],
+                xlabel="T (log scale)",
+                ylabel="Var(equivalent) / Var(exact)",
+                filename=f"variance_ratio_constant.pdf",
+                label=rf"$\alpha$ = {alpha}",
+                save=True,
+                show=False,
+                close=False,
+                legend=True,
+                schedule=ScheduleCmap.CONSTANT,
+                intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+                xscale='log',
+                yscale='log',
+                marker='.',
+            )
+        plt.show()
+        for alpha in list_alphas:
+            plot(
+                X=T_values,
+                Y=[ratios_bias[(alpha, T)] for T in T_values],
+                xlabel="T (log scale)",
+                ylabel="Bias(equivalent) / Bias(exact)",
+                filename=f"bias_ratio_constant.pdf",
+                label=rf"$\alpha$ = {alpha}",
+                save=True,
+                show=False,
+                close=False,
+                legend=True,
+                schedule=ScheduleCmap.CONSTANT,
+                intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+                xscale='log',
+                yscale='log',
+                marker='.',
+            )
+        plt.show()
+                       
+    def asymptotics_vs_true_linear():
+        results_var_true = read_dict_from_json(folder="slock_linear_dim=1000", filename="true_variance_trajectories.json")
+        results_var_approx = read_dict_from_json(folder="slock_linear_dim=1000", filename="variance_trajectories.json")
+        results_bias_true = read_dict_from_json(folder="slock_linear_dim=1000", filename="true_bias_trajectories.json")
+        results_bias_approx = read_dict_from_json(folder="slock_linear_dim=1000", filename="bias_trajectories.json")
+        print("Results loaded for Asymptotics vs True comparison.")
+        list_alphas = sorted(set(alpha for (alpha, T) in results_var_true.keys()))
+        T_values = sorted(set(T for (alpha, T) in results_var_true.keys()))
+
+        ratios_variance = {key: results_var_approx[key] / results_var_true[key] for key in results_var_true.keys()}
+        ratios_bias = {key: results_bias_approx[key] / results_bias_true[key] for key in results_bias_true.keys()}
+
+        for alpha in list_alphas:
+            plot(
+                X=T_values,
+                Y=[ratios_variance[(alpha, T)] for T in T_values],
+                xlabel="T (log scale)",
+                ylabel="Var(equivalent) / Var(exact)",
+                filename=f"variance_ratio_linear.pdf",
+                label=rf"$\alpha$ = {alpha}",
+                save=True,
+                show=False,
+                close=False,
+                legend=True,
+                schedule=ScheduleCmap.LINEAR,
+                intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+                xscale='log',
+                yscale='log',
+                marker='.',
+            )
+        plt.show()
+        for alpha in list_alphas:
+            plot(
+                X=T_values,
+                Y=[ratios_bias[(alpha, T)] for T in T_values],
+                xlabel="T (log scale)",
+                ylabel="Bias(equivalent) / Bias(exact)",
+                filename=f"bias_ratio_linear.pdf",
+                label=rf"$\alpha$ = {alpha}",
+                save=True,
+                show=False,
+                close=False,
+                legend=True,
+                schedule=ScheduleCmap.LINEAR,
+                intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+                xscale='log',
+                yscale='log',
+                marker='.',
+            )
+        plt.show()
+
+    asymptotics_vs_true_linear()    
+    
 # %%
