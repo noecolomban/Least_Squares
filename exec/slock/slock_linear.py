@@ -14,7 +14,7 @@ from src.asymptotics import (
 )
 from src.utils import save_dict_to_json
 # %%
-dim = 1000
+dim = 100
 sigma = 1
 exponent = 2 #alpha
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
@@ -149,35 +149,61 @@ print(ratios_bias)
 # %%
 #COMPARE ETAS
 
-risks = {}
-etas = np.logspace(-4, -1, 30)
-alpha = 2.2
+#ETAS
 T = 100000
-model = PowerLawRegression(dim=dim, sigma=sigma, exponent=alpha)
-colors = ["red", "blue", "green", "orange", "purple", "brown", "pink"]
-
-for eta in etas:
-    slock_linear = SlockLinear(model, x0, beta=beta, T_max=T, optimize=False, base_lr=eta)
-    mode = Mode.SLOCK
-    slock_risk = slock_linear.compute_slock_approx_risk(T=T,  m_constant=Delta)
-    risks[eta] = slock_risk
-
-eta_star = slock_linear.compute_best_slock_eta(T=T, m_constant=Delta)
-print(f"Optimal eta for alpha={alpha}, T={T}: {eta_star}")
+list_alphas = [1.4, 1.9, 2.5]
+etas = np.logspace(-4, -2, 10)
+eta_stars = {}
+for alpha in list_alphas:
+    slock_linear._update_model_for_alpha(alpha)
+    eta_star = slock_linear.compute_best_slock_eta(T, m_constant=Delta)
+    eta_stars[alpha] = eta_star
+print(f"Optimal etas for T={T}: {eta_stars}")
+#%%
+risks = {}
+for alpha in list_alphas:
+    risks[alpha] = {}
+    slock_linear._update_model_for_alpha(alpha)
+    for eta in etas:
+        print(f"Computing risk for alpha={alpha}, eta={eta}...")
+        slock_linear._setup_for_T(T, base_lr=eta)
+        biases, variances = slock_linear.compute_slock_biases_and_variances([T])
+        risks[alpha][eta] = biases[T] + variances[T]
+# %%
+colors = plt.cm.viridis(np.linspace(0, 1, len(list_alphas)))
 
 plt.figure(figsize=(12, 8))
-color = "red"
-risk_val = [risks[eta] for eta in etas]
-plt.plot(etas, risk_val, label=f"B+V (alpha={alpha}, T={T})", marker='o', color=color)
-plt.axvline(x=eta_star, color='black', linestyle='--', label=f"Computed Optimal eta={eta_star:.4f}")
+for alpha in list_alphas:
+    color = colors[list_alphas.index(alpha)]
+    plt.plot(etas, [risks[alpha][eta] for eta in etas], label=f"Risk (alpha={alpha})", marker='o', color=color)
+    plt.axvline(x=eta_stars[alpha], color=color, linestyle='--', label=f"Optimal eta (alpha={alpha})")
 plt.xscale('log')
-plt.xlabel("Learning Rate (eta)")
-plt.ylabel("Risk")
 plt.yscale('log')
-plt.title(f"Risk for Different Learning Rates (SLOCK vs Diagonal) alpha={alpha}, T={T}")
+plt.xlabel("eta (log scale)")
+plt.ylabel("Risk (log scale)")
+plt.title("Risk for Different Alphas (SLOCK)")
 plt.legend()
 plt.grid()
-plt.savefig(f"images/slock/_LINEAR_risk_optimal_eta_comparison_alpha={alpha}_T={T}.pdf")
+plt.savefig("images/slock/_LINEAR_eta_comparison.png")
 plt.show()
+
+#%%
+save_dict_to_json({str(alpha): risks[alpha] for alpha in list_alphas}, folder=f"slock_linear_dim={dim}", filename="risks_for_different_etas.json")
+save_dict_to_json({str(alpha): eta_stars[alpha] for alpha in list_alphas}, folder=f"slock_linear_dim={dim}", filename="optimal_etas.json")
+
 # %%
 
+T = 100000
+list_alphas = np.linspace(1.4, 2.5, 10)
+etas = np.logspace(-4, -1, 50)
+eta_stars__ = {}
+for alpha in list_alphas:
+    print(f"Computing optimal eta for alpha={alpha}...")
+    slock_linear._update_model_for_alpha(alpha)
+    eta_star = slock_linear.compute_best_slock_eta(T, m_constant=Delta)
+    eta_stars__[alpha] = eta_star
+print(f"Optimal etas for T={T}: {eta_stars__}")
+print(eta_stars__)
+
+
+# %%

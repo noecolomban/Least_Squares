@@ -40,8 +40,8 @@ mode = Mode.SLOCK
 
 def changing_dim(T, alpha):
     #return int((T/100)**(1/alpha))
-    #return 100
-    return min(1000, int(10 * (T/10)**(1/alpha)))
+    return 100
+    #return min(1000, int(10 * (T/10)**(1/alpha)))
     #return min(T, 2000)
 
 #%% 
@@ -150,7 +150,7 @@ print(ratios_bias)
 cooldown_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 eta = 0.001
 T_values = [1000, 5000, 10000, 20000, 50000, 100000]
-list_alphas = [1.1, 1.5, 2.5]
+list_alphas = [1.4, 1.9, 2.5]
 risks_slock = {}
 for cooldown_len in cooldown_list:
     slock_wsd = SlockWSD(model, x0, beta=beta, T_max=max(T_values), optimize=False, base_lr=eta, cooldown_len=cooldown_len)
@@ -167,13 +167,14 @@ for cooldown_len in cooldown_list:
     )
     risks_slock[cooldown_len] = {alpha: [slock_variance[(alpha, T)] + slock_bias[(alpha, T)] for T in T_values] for alpha in list_alphas}
 # %% compare
-colors = plt.cm.viridis(np.linspace(0, 1, len(T_values)))
+colors = plt.cm.viridis(np.linspace(0, 1, len(list_alphas)))
+T = max(T_values)
+plt.figure(figsize=(12, 8))
+
 for alpha in list_alphas:
-    plt.figure(figsize=(12, 8))
-    for T in T_values:
-        color = colors[T_values.index(T)]
-        risk = [risks_slock[cooldown_len][alpha][T_values.index(T)] for cooldown_len in cooldown_list]
-        plt.plot(cooldown_list, risk, label=f"B+V (T={T})", marker='o', color=color)
+    color = colors[list_alphas.index(alpha)]
+    risk = [risks_slock[cooldown_len][alpha][T_values.index(T)] for cooldown_len in cooldown_list]
+    plt.plot(cooldown_list, risk, label=f"alpha={alpha}", marker='o', color=color)
     plt.xscale('linear')
     plt.xlabel("Cooldown Length")
     plt.ylabel("Risk")
@@ -181,8 +182,8 @@ for alpha in list_alphas:
     plt.title(f"Risk for Different cooldown lengths (SLOCK vs Diagonal) eta={eta}, alpha={alpha}")
     plt.legend()
     plt.grid()
-    plt.savefig(f"images/slock/_WSD_risk_cooldown_comparison_eta={eta}_alpha={alpha}.pdf")
-    plt.show()
+plt.savefig(f"images/slock/_WSD_risk_cooldown_comparison_eta={eta}_alpha={alpha}.pdf")
+plt.show()
 
 # %%
 #COMPARE BEST ETA 
@@ -261,18 +262,18 @@ plt.show()
 
 #With BEST ETA OPtimized
 def changing_dim(T, alpha):
-    return 200
+    return 1000
 
-with_eta_star = False
+with_eta_star = True
 
-cooldown_list = [0.1, 0.2, 0.3, 0.4,  0.5, 0.6, 0.7, 0.8, 0.9]
+cooldown_list = [0.1, 0.2, 0.3, 0.4,  0.5, 0.6, 0.7, 0.8, 0.9, 1]
 T = 100000
 list_alphas = [1.2, 1.8, 2.5]
 approx_slock = {}
 true_slock = {}
 for cooldown_len in cooldown_list:
     print(f"COOLDOWN LENGTH: {cooldown_len}")
-    slock_wsd = SlockWSD(model, x0, beta=beta, T_max=max(T_values), optimize=False, base_lr=eta, cooldown_len=cooldown_len)
+    slock_wsd = SlockWSD(model, x0, beta=beta, T_max=T, optimize=False, base_lr=eta, cooldown_len=cooldown_len)
     mode = Mode.SLOCK
     approx_variance, true_variance, approx_bias, true_bias = (
         slock_wsd.compare_biases_variances_trajectories_different_alphas(
@@ -314,6 +315,11 @@ for alpha in list_alphas:
     plt.show()
 
 # %%
+save_dict_to_json(true_slock, folder=f"slock_wsd_dim={changing_dim(T, alpha)}", filename="true_slock_risks_cooldown.json")
+print("Saved true_slock_risks_cooldown.json", f"alpha={list_alphas}", f"T={T}", f"beta={beta}", f"Delta={Delta}")
+
+#%%
+
 
 
 

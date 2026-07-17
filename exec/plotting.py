@@ -1,5 +1,6 @@
 #%%
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
 import pathlib
 from enum import Enum
@@ -310,6 +311,175 @@ if __name__ == "__main__":
             )
         plt.show()
 
-    asymptotics_vs_true_linear()    
+
+    def eta_optimization_constant():
+        results_risks = read_dict_from_json(folder="slock_constant_dim=100", filename="risks_for_different_etas.json")
+        results_eta_opt = read_dict_from_json(folder="slock_constant_dim=100", filename="optimal_etas.json")
+        list_alphas = list(results_risks.keys())
+        eta_values = sorted(float(eta) for eta in results_risks[list_alphas[0]].keys())
+        print(results_risks)
+        for alpha in list_alphas:
+            plot(
+                X=eta_values,
+                Y=[results_risks[alpha][str(eta)] for eta in eta_values],
+                xlabel=r"$\eta$",
+                ylabel="Risk",
+                filename=f"eta_opt_constant.pdf",
+                label=rf"$\alpha$ = {alpha}",
+                save=False,
+                show=False,
+                close=False,
+                legend=True,
+                schedule=ScheduleCmap.CONSTANT,
+                intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+                xscale='log',
+                yscale='log',
+                marker='.',
+            )
+        for alpha in list_alphas:
+            intensity = 0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1))
+            plt.axvline(x=results_eta_opt[alpha], color=ScheduleCmap.CONSTANT.get_shade(intensity), linestyle='--', label=rf"$\tilde\eta^*$ for $\alpha$ = {alpha}")
+        plt.legend()
+        
+        plt.xlim(1e-3, 1e-2)
+        plt.ylim(2e-5, 6*1e-5)
+
+        ax = plt.gca()
+        ax.set_xticks([1e-3, 2e-3, 5e-3, 1e-2])
+        ax.xaxis.set_minor_formatter(ticker.NullFormatter())
+        plt.subplots_adjust(left=0.18, right=0.95, bottom=0.15, top=0.95)
+        plt.savefig(folder / "eta_opt_constant.pdf")
+        plt.show()
+
+
+    def eta_optimization_linear():
+        results_risks = read_dict_from_json(folder="slock_linear_dim=100", filename="risks_for_different_etas.json")
+        results_eta_opt = read_dict_from_json(folder="slock_linear_dim=100", filename="optimal_etas.json")
+        list_alphas = list(results_risks.keys())
+        eta_values = sorted(float(eta) for eta in results_risks[list_alphas[0]].keys())
+        print(results_risks)
+        for alpha in list_alphas:
+            plot(
+                X=eta_values,
+                Y=[results_risks[alpha][str(eta)] for eta in eta_values],
+                xlabel=r"$\eta$",
+                ylabel="Risk",
+                filename=f"eta_opt_linear.pdf",
+                label=rf"$\alpha$ = {alpha}",
+                save=False,
+                show=False,
+                close=False,
+                legend=True,
+                schedule=ScheduleCmap.LINEAR,
+                intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+                xscale='log',
+                yscale='log',
+                marker='.',
+            )
+        for alpha in list_alphas:
+            intensity = 0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1))
+            plt.axvline(x=results_eta_opt[alpha], color=ScheduleCmap.LINEAR.get_shade(intensity), linestyle='--', label=rf"$\tilde\eta^*$ for $\alpha$ = {alpha}")
+        plt.legend()
+        
+        plt.xlim(2e-4, 1e-2)
+        plt.ylim(1e-4, 2e-3)
+
+        ax = plt.gca()
+        ax.set_xticks([5e-4, 1e-3, 2e-3, 5e-3, 1e-2])
+        ax.xaxis.set_minor_formatter(ticker.NullFormatter())
+        plt.subplots_adjust(left=0.18, right=0.95, bottom=0.15, top=0.95)
+        plt.savefig(folder / "eta_opt_linear.pdf")
+        plt.show()
     
+    
+    def slock_vs_normal_comparison_linear():
+        results_variance_ratio = read_dict_from_json(folder="slock_linear_dim=1000", filename="true_slock_vs_normal_variance_ratios.json")
+        results_bias_ratio = read_dict_from_json(folder="slock_linear_dim=1000", filename="true_slock_vs_normal_bias_ratios.json")
+        list_alphas = sorted(set(float(alpha) for alpha in results_variance_ratio.keys()))
+        T_values = sorted(set(int(T) for T in results_variance_ratio[list_alphas[0]].keys()))
+        variance_ratio = {float(alpha): {int(T): results_variance_ratio[alpha][str(T)] for T in results_variance_ratio[alpha]} for alpha in results_variance_ratio}
+        bias_ratio = {float(alpha): {int(T): results_bias_ratio[alpha][str(T)] for T in results_bias_ratio[alpha]} for alpha in results_bias_ratio}
+
+        for alpha in list_alphas:
+            plot(
+                X=T_values,
+                Y=[variance_ratio[alpha][T] for T in T_values],
+                xlabel=r"$T$",
+                ylabel="Var(Slock) / Var(Normal)",
+                filename=f"variance_ratio_slock_vs_normal.pdf",
+                label=rf"$\alpha$ = {alpha}",
+                save=False,
+                show=False,
+                close=False,
+                legend=True,
+                schedule=ScheduleCmap.LINEAR,
+                intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+                xscale='log',
+                yscale='linear',
+                marker='.',
+            )
+        plt.axhline(y=1, color='black', linestyle='--', label=r"$y=1$")
+        plt.legend()
+        plt.ylim(0.9, 1.05)
+        plt.savefig(folder / "variance_ratio_slock_vs_normal.pdf",
+                    bbox_inches='tight', pad_inches=0.1)
+        plt.show()
+
+        for alpha in list_alphas:
+            plot(
+                X=T_values,
+                Y=[bias_ratio[alpha][T] for T in T_values],
+                xlabel=r"$T$",
+                ylabel="Bias(Slock) / Bias(Normal)",
+                filename=f"bias_ratio_slock_vs_normal.pdf",
+                label=rf"$\alpha$ = {alpha}",
+                save=False,
+                show=False,
+                close=False,
+                legend=True,
+                schedule=ScheduleCmap.LINEAR,
+                intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+                xscale='log',
+                yscale='linear',
+                marker='.',
+            )
+        plt.axhline(y=1, color='black', linestyle='--', label=r"$y=1$")
+        plt.legend()
+        plt.ylim(0.9, 1.025)
+        plt.savefig(folder / "bias_ratio_slock_vs_normal.pdf",
+                    bbox_inches='tight', pad_inches=0.1)
+        plt.show()
+    
+    def cooldown_length_comparing_at_eta_star(d=1000):
+        T = 100000
+        results_risks = read_dict_from_json(folder=f"slock_wsd_dim={d}", filename="true_slock_risks_cooldown.json")
+        list_cooldown = [float(c) for c in results_risks.keys()]
+        print(results_risks)
+        list_alphas = [float(alpha) for alpha in results_risks[list_cooldown[0]].keys()]
+        print(f"Loaded risks for cooldown lengths at T={T} for alphas: {list_alphas}")
+        risks = {float(c): {float(alpha): results_risks[c][alpha] for alpha in results_risks[c]} for c in results_risks}
+        print(f"Loaded risks for cooldown lengths for alphas: {list_alphas}")
+        for alpha in list_alphas:
+            plot(
+                X=list_cooldown,
+                Y=[risks[c][alpha] for c in list_cooldown],
+                xlabel=r"Cooldown Length ($c$)",
+                ylabel="Risk",
+                filename=f"risk_vs_cooldown_length.pdf",
+                label=rf"$\alpha$ = {alpha}",
+                save=False,
+                show=False,
+                close=False,
+                legend=True,
+                schedule=ScheduleCmap.WSD,
+                intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+                xscale='linear',
+                yscale='linear',
+                marker='.',
+            )
+        plt.savefig(folder / "risk_vs_cooldown_length.pdf",
+                    bbox_inches='tight', pad_inches=0.1)
+        plt.show()
+    
+    cooldown_length_comparing_at_eta_star()
 # %%

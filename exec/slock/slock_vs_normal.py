@@ -142,13 +142,13 @@ print(ratios_variance)
 print(ratios_bias)
 # %%
 #COMPARE TRUE SLOCK vs NORMAL
-dim = 100
-x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
+dim = 1000
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=1.3)
+x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 T_values = [100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000]
 
 
-list_alphas = [1.01, 1.3, 1.5, 2.5, 10]
+list_alphas = [1.01, 1.4, 1.9, 2.5, 10]
 
 slock_linear = SlockLinear(model, x0, beta=beta, T_max=max(T_values), optimize=optimize, base_lr=eta)
 
@@ -218,4 +218,7 @@ plt.legend()
 plt.grid()
 plt.savefig(f"images/slock/_LINEAR_true_variance_ratio_trajectories_comparison_.pdf")
 plt.show()
+# %%
+save_dict_to_json({str(alpha): {str(T): ratios_variance[alpha][T] for T in T_values} for alpha in list_alphas}, folder=f"slock_linear_dim={dim}", filename="true_slock_vs_normal_variance_ratios.json")
+save_dict_to_json({str(alpha): {str(T): ratios_bias[alpha][T] for T in T_values} for alpha in list_alphas}, folder=f"slock_linear_dim={dim}", filename="true_slock_vs_normal_bias_ratios.json")
 # %%

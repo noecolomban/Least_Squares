@@ -110,9 +110,9 @@ plt.savefig("images/slock/_CONSTANT_variance_bias_comparison.png")
 plt.show()
 # %%
 #ETAS
-T = 50000
+T = 100000
 
-etas = np.logspace(-4, -1, 10)
+etas = np.logspace(-4, -1, 50)
 eta_stars = {}
 for alpha in list_alphas:
     slock_constant._update_model_for_alpha(alpha)
@@ -130,6 +130,8 @@ for alpha in list_alphas:
         biases, variances = slock_constant.compute_slock_biases_and_variances([T])
         risks[alpha][eta] = biases[T] + variances[T]
 # %%
+colors = plt.cm.viridis(np.linspace(0, 1, len(list_alphas)))
+
 plt.figure(figsize=(12, 8))
 for alpha in list_alphas:
     color = colors[list_alphas.index(alpha)]
