@@ -251,7 +251,7 @@ class AsymptoticsAnalysis(ABC):
 
     
 
-    def compare_biases_variances_trajectories_different_alphas(self, T_values, list_alphas, m_exponent, m_constant, *args, changing_dim=None, K=1, mode: Mode = Mode.DIAGONAL, from_file=False, with_eta_star=False, **kwargs):
+    def compare_biases_variances_trajectories_different_alphas(self, T_values, list_alphas, m_exponent, m_constant, *args, changing_dim=None, K=1, mode: Mode = Mode.SLOCK, from_file=False, with_eta_star=False, **kwargs):
         """Compare Laplace variance trajectories for different alpha values at different T values and fixed eta."""
         assert all(alpha > 1 for alpha in list_alphas), "Alpha should be greater than 1 for the power law eigenvalue decay."
         assert K == 1, "This comparison now uses double-integral variance only, implemented for K=1."

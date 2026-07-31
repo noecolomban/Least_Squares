@@ -188,15 +188,14 @@ class SlockWSD(AsymptoticsAnalysis):
         
         # Optimize learning rate specifically for this T
         if optimize:
-            self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)
-
+            #self.computations.optimize_all_base_lrs(t_value=T-1, change_eta=True)
+            pass
 
     def _update_schedule_for_T(self, T):
         """Update the schedule for a new T."""
         assert self.schedule is not None, "Schedule must be initialized before updating."
         self.schedule = WSDSchedule(steps=T, base_lr=self.schedule.get_base_lr(), cooldown_len=self.cooldown_len)
         self.sgd.schedule = self.schedule
-
 
 
 

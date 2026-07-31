@@ -28,7 +28,7 @@ x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 optimize = False
 T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000, 500000]
 #T_values = [10, 20, 50, 100, 200, 500, 1000, 2000]
-list_alphas = [1.4, 1.9, 2.5]
+list_alphas = [1.4, 1.9, 2.4]
 
 eta = 0.001
 slock_linear = SlockLinear(model, x0, beta=beta, T_max=max(T_values), optimize=optimize, base_lr=eta)
@@ -47,7 +47,7 @@ slock_variance, diagonal_variance, slock_bias, diagonal_bias = (
     slock_linear.compare_biases_variances_trajectories_different_alphas(
         T_values,
         list_alphas, 
-        m_exponent=model.exponent, 
+        m_exponent=beta,
         m_constant=Delta, 
         changing_dim=changing_dim,
         mode=mode,
