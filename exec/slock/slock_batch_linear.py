@@ -202,10 +202,13 @@ plt.grid()
 plt.savefig(f"images/slock/BATCH_comparison_risk_bT={bT}_eta_star_for_each_batch.pdf")
 plt.show()
 # %% APPROX
-batches = [1, 5, 10, 20, 50, 100]
+list_alphas = [1.4, 1.9, 2.5]
+batches = [1, 5, 10, 20, 50, 100, 200, 500, 600, 700,  1000, 1500, 2000, 2100]
 approx_biases, approx_variances = {}, {}
+true_biases, true_variances = {}, {}
 for batch in batches:
     approx_biases[batch], approx_variances[batch] = {}, {}
+    true_biases[batch], true_variances[batch] = {}, {}
     for alpha in list_alphas:
         T = bT // batch  # Adjust T to keep b*T constant
         print(f"Computing for alpha={alpha}, batch size {batch} and T={T} (b*T={bT})...")
@@ -219,13 +222,17 @@ for batch in batches:
         variance = slock_linear.compute_slock_approx_variance(T, T, batch=batch)
         approx_biases[batch][alpha] = bias
         approx_variances[batch][alpha] = variance
-
+        true_bias, true_variance = slock_linear.compute_slock_biases_and_variances([T], batch=batch)
+        true_biases[batch][alpha], true_variances[batch][alpha] = true_bias[T], true_variance[T]
 #%%
+batches = [1, 5, 10, 20, 50, 100, 200, 500, 600, 700,  1000, 1500, 2000, 2100]
 plt.figure(figsize=(12, 8))
 for alpha in list_alphas:
     X = [batch for batch in batches]
     Y = [approx_biases[batch][alpha] for batch in batches]
+    Y_true = [true_biases[batch][alpha] for batch in batches]
     plt.plot(X, Y, label=f'Approx Bias (alpha={alpha})', marker='o')
+    plt.plot(X, Y_true, label=f'True Bias (alpha={alpha})', marker='x', linestyle='--')
 plt.xlabel("Batch Size")
 plt.ylabel("Approx Bias")
 plt.title(f"Slock Approx Bias for Different Batch Sizes; b*T={bT}, eta_star")
@@ -240,7 +247,9 @@ plt.figure(figsize=(12, 8))
 for alpha in list_alphas:
     X = [batch for batch in batches]
     Y = [approx_variances[batch][alpha] for batch in batches]
+    Y_true = [true_variances[batch][alpha] for batch in batches]
     plt.plot(X, Y, label=f'Approx Variance (alpha={alpha})', marker='o')
+    plt.plot(X, Y_true, label=f'True Variance (alpha={alpha})', marker='x', linestyle='--')
 plt.xlabel("Batch Size")
 plt.ylabel("Approx Variance")
 plt.title(f"Slock Approx Variance for Different Batch Sizes; b*T={bT}, eta_star")
@@ -255,7 +264,9 @@ plt.figure(figsize=(12, 8))
 for alpha in list_alphas:
     X = [batch for batch in batches]
     Y = [approx_biases[batch][alpha] + approx_variances[batch][alpha] for batch in batches]
+    Y_true = [true_biases[batch][alpha] + true_variances[batch][alpha] for batch in batches]
     plt.plot(X, Y, label=f'Approx Risk (alpha={alpha})', marker='o')
+    plt.plot(X, Y_true, label=f'True Risk (alpha={alpha})', marker='x', linestyle='--')
 plt.xlabel("Batch Size")
 plt.ylabel("Approx Risk")
 plt.title(f"Slock Approx Risk for Different Batch Sizes; b*T={bT}, eta_star")
@@ -267,8 +278,11 @@ plt.savefig(f"images/slock/BATCH_comparison_approx_risk_bT={bT}_eta_star_for_eac
 plt.show()  
 # %%
 
+save_dict_to_json(true_biases, f"slock_linear_dim={dim}", f"BATCH_comparison_bias_bT={bT}_eta_star_for_each_batch.json")
+save_dict_to_json(true_variances, f"slock_linear_dim={dim}", f"BATCH_comparison_variance_bT={bT}_eta_star_for_each_batch.json")
+#%%
 
-
+###
 #COMPARE BEST ETAS vs NUMERICAL OPTIMIZATION
 alphas = [1+1e-6, 1.001, 1.01, 1.1, 1.5, 2.5, 10, 20 , 50]
 best_etas = {}

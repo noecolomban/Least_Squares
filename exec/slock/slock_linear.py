@@ -26,11 +26,11 @@ diff0 = Delta * np.array([1/i**beta for i in range(1, dim+1)])
 x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 optimize = False
-T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000]
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000, 500000]
 #T_values = [10, 20, 50, 100, 200, 500, 1000, 2000]
 list_alphas = [1.4, 1.9, 2.5]
 
-eta = 0.00001
+eta = 0.001
 slock_linear = SlockLinear(model, x0, beta=beta, T_max=max(T_values), optimize=optimize, base_lr=eta)
 mode = Mode.SLOCK
 #%%
@@ -117,9 +117,9 @@ for alpha in list_alphas:
     Y = np.array([ratios_variance[(alpha, T)] for T in T_values])
     plt.plot(T_values, Y, label=f"Variance Ratio (alpha={alpha})", marker='o', color=color)
 plt.xscale('log')
+plt.yscale('log')
 plt.xlim(100, max(T_values))
 plt.xlabel("T (log scale)")
-plt.ylim(0, 5)
 plt.ylabel("Variance (log scale)")
 plt.title(f"Variance Trajectories for Different Alphas (SLOCK vs Diagonal) eta={eta}")
 plt.legend()
@@ -134,9 +134,9 @@ for alpha in list_alphas:
     Y = np.array([ratios_bias[(alpha, T)] for T in T_values])
     plt.plot(T_values, Y, label=f"Bias Ratio (alpha={alpha})", marker='o', color=color)
 plt.xscale('log')
+plt.yscale('log')
 plt.xlim(100, max(T_values))
 plt.xlabel("T (log scale)")
-plt.ylim(0, 3)
 plt.ylabel("Bias Ratio")
 plt.title(f"Bias Ratios for Different Alphas ({mode.value} vs True  ) eta={eta}")
 plt.legend()

@@ -7,11 +7,14 @@ from enum import Enum
 from scheduled.schedules.wsd import WSDSchedule
 from enum import Enum
 from src.utils import read_dict_from_json
+from matplotlib.ticker import FormatStrFormatter
 
 folder = pathlib.Path(__file__).parent.resolve() / "plots"
 folder.mkdir(exist_ok=True)
 
-DIMENSIONS = (4, 3)
+#DIMENSIONS = (2, 1.5)
+#DIMENSIONS = (3.5, 2.5)  # Width and height in inches for LaTeX document
+DIMENSIONS = (4,3)
 
 plt.rcParams.update({
     "text.usetex": True,                   # Use LaTeX to write all text
@@ -86,38 +89,47 @@ def plots(X, Y_dict, xlabel, ylabel, filename, save=False, show=False, close=Tru
 # %%
 if __name__ == "__main__":
     def eta_of_cooldown():
+        #Dimensions = (4,3)
         import matplotlib.ticker as ticker
         plt.gca().xaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
         results_eta_ratio = read_dict_from_json(folder="figures", filename="eta_ratio_vs_cooldown.json")
         list_c, results_to_print = results_eta_ratio[400].keys(), {T: [results_eta_ratio[T][c] for c in results_eta_ratio[T]] for T in results_eta_ratio}
-        plots(
-            X=list_c,
-            Y_dict=results_to_print,
-            xlabel="Cooldown Length (c)",
-            ylabel="log(eta_star(1) / eta_star(c))",
-            filename="eta_ratio_vs_cooldown.pdf",
-            save=True,
-            show=True
-        )
+        for T in results_to_print:
+            print(f"T={T}: {results_to_print[T]}")
+            plot(
+                label=fr"$T={T}$",
+                X=list_c,
+                Y=results_to_print[T],
+                xlabel="Cooldown Length (c)",
+                ylabel=r"$\log(\widetilde\gamma^*_1) - \log(\widetilde\gamma^*_c)$",
+                filename="eta_ratio_vs_cooldown.pdf",
+                schedule=ScheduleCmap.WSD,
+                intensity=0.5 + 0.5 * (list(results_to_print.keys()).index(T) / max(1, len(results_to_print)-1)),
+                save=False,
+                close=False,
+                show=False,
+            )
+        plt.legend()
+        plt.savefig(folder / "eta_ratio_vs_cooldown.pdf", bbox_inches='tight', pad_inches=0.1)
         plt.show()
 
     def wsd(c=0.2):
+        #DIMENSIONS = (2,1.5)
         from scheduled import WSDSchedule
         wsd = WSDSchedule(steps=1000, cooldown_len=c, base_lr=1)
         plot(
             X=np.arange(1000),
             Y=wsd.schedule,
             xlabel="Step",
-            ylabel="Learning Schedule",
+            ylabel=r"$\eta_t$",
             filename=f"wsd_schedule_c={c}.pdf",
             schedule=ScheduleCmap.WSD,
-            label=r"$\eta_t / \eta$",
             intensity=0.8,
             show=False,
-            close=False
+            close=False,
+            save=True,
         )
         #plt.axhline(xmin=1-c, xmax=1, y=0.5, color='r', linestyle=':', label=r'$c \times T$')
-        plt.legend()
 
     def sgd_vs_formula_constant():
         results = read_dict_from_json(folder="slock_experiment_dim=100", filename="losses_and_risks_alpha=1.5_beta=2_L=0.1_Delta=1_sigma=0.1.json")
@@ -147,7 +159,7 @@ if __name__ == "__main__":
             xlabel="Step",
             ylabel="Loss / Risk",
             filename=f"sgd_vs_formula_constant.pdf",
-            label="Computed Risk",
+            label=r"Risk $\mathcal R_T$",
             xscale='log',
             yscale='log',
             save=True,
@@ -194,7 +206,7 @@ if __name__ == "__main__":
             xlabel="Step",
             ylabel="Loss / Risk",
             filename=f"sgd_vs_formula_linear.pdf",
-            label="Computed Risk",
+            label=r"Risk $\mathcal R_T$",
             xscale='log',
             yscale='log',
             save=True,
@@ -226,7 +238,7 @@ if __name__ == "__main__":
                 X=T_values,
                 Y=[ratios_variance[(alpha, T)] for T in T_values],
                 xlabel="T (log scale)",
-                ylabel="Var(equivalent) / Var(exact)",
+                ylabel=r"$\widetilde V_T / V_T$",
                 filename=f"variance_ratio_constant.pdf",
                 label=rf"$\alpha$ = {alpha}",
                 save=True,
@@ -245,7 +257,7 @@ if __name__ == "__main__":
                 X=T_values,
                 Y=[ratios_bias[(alpha, T)] for T in T_values],
                 xlabel="T (log scale)",
-                ylabel="Bias(equivalent) / Bias(exact)",
+                ylabel=r"$\widetilde B_T / B_T$",
                 filename=f"bias_ratio_constant.pdf",
                 label=rf"$\alpha$ = {alpha}",
                 save=True,
@@ -277,7 +289,7 @@ if __name__ == "__main__":
                 X=T_values,
                 Y=[ratios_variance[(alpha, T)] for T in T_values],
                 xlabel="T (log scale)",
-                ylabel="Var(equivalent) / Var(exact)",
+                ylabel=r"$\widetilde V_T / V_T$",
                 filename=f"variance_ratio_linear.pdf",
                 label=rf"$\alpha$ = {alpha}",
                 save=True,
@@ -296,7 +308,7 @@ if __name__ == "__main__":
                 X=T_values,
                 Y=[ratios_bias[(alpha, T)] for T in T_values],
                 xlabel="T (log scale)",
-                ylabel="Bias(equivalent) / Bias(exact)",
+                ylabel=r"$\widetilde B_T / B_T$",
                 filename=f"bias_ratio_linear.pdf",
                 label=rf"$\alpha$ = {alpha}",
                 save=True,
@@ -400,7 +412,7 @@ if __name__ == "__main__":
         variance_ratio = {float(alpha): {int(T): results_variance_ratio[alpha][str(T)] for T in results_variance_ratio[alpha]} for alpha in results_variance_ratio}
         bias_ratio = {float(alpha): {int(T): results_bias_ratio[alpha][str(T)] for T in results_bias_ratio[alpha]} for alpha in results_bias_ratio}
 
-        for alpha in list_alphas:
+        for alpha in list_alphas[:len(list_alphas)-1]:
             plot(
                 X=T_values,
                 Y=[variance_ratio[alpha][T] for T in T_values],
@@ -418,14 +430,13 @@ if __name__ == "__main__":
                 yscale='linear',
                 marker='.',
             )
-        plt.axhline(y=1, color='black', linestyle='--', label=r"$y=1$")
         plt.legend()
         plt.ylim(0.9, 1.05)
         plt.savefig(folder / "variance_ratio_slock_vs_normal.pdf",
                     bbox_inches='tight', pad_inches=0.1)
         plt.show()
 
-        for alpha in list_alphas:
+        for alpha in list_alphas[:len(list_alphas)-1]:  
             plot(
                 X=T_values,
                 Y=[bias_ratio[alpha][T] for T in T_values],
@@ -443,7 +454,6 @@ if __name__ == "__main__":
                 yscale='linear',
                 marker='.',
             )
-        plt.axhline(y=1, color='black', linestyle='--', label=r"$y=1$")
         plt.legend()
         plt.ylim(0.9, 1.025)
         plt.savefig(folder / "bias_ratio_slock_vs_normal.pdf",
@@ -481,5 +491,46 @@ if __name__ == "__main__":
                     bbox_inches='tight', pad_inches=0.1)
         plt.show()
     
-    cooldown_length_comparing_at_eta_star()
+    def batch_bT_constant():
+        bT = 200000
+        results_biases = read_dict_from_json(folder="slock_linear_dim=100", filename=f"BATCH_comparison_bias_bT={bT}_eta_star_for_each_batch.json")
+        results_variances = read_dict_from_json(folder="slock_linear_dim=100", filename=f"BATCH_comparison_variance_bT={bT}_eta_star_for_each_batch.json")
+        biases = {int(batch): {float(alpha): results_biases[batch][alpha] for alpha in results_biases[batch]} for batch in results_biases}
+        variances = {int(batch): {float(alpha): results_variances[batch][alpha] for alpha in results_variances[batch]} for batch in results_variances}
+        print("Results loaded for Batch Size vs Risk comparison.")
+        batches = sorted(set(int(batch) for batch in biases.keys()))
+        list_alphas = sorted(set(float(alpha) for alpha in biases[batches[0]].keys()))
+        for alpha in [1.4, 1.9, 2.5]:
+            Y0 = {alpha: biases[1][alpha] + variances[1][alpha] for alpha in list_alphas}
+            plot(
+                X=batches,
+                Y=[(biases[batch][alpha] + variances[batch][alpha]) / Y0[alpha] for batch in batches],
+                xlabel=r"Batch Size $b$",
+                ylabel=r"Risk / Risk($b=1$)",
+                filename=f"batch_risk_comparison.pdf",
+                label=rf"$\alpha$ = {alpha}",
+                save=False,
+                show=False,
+                close=False,
+                legend=True,
+                schedule=ScheduleCmap.LINEAR,
+                intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+                xscale='log',
+                yscale='linear',
+                marker='.',
+            )
+        plt.xlim(1, 2000)
+        plt.ylim(0.995, 1.03)
+        plt.savefig(folder / "batch_risk_comparison.pdf",
+                    bbox_inches='tight', pad_inches=0.1)
+        plt.show()
+
+        
+    #wsd(c=0.4)
+    #asymptotics_vs_true_constant()
+    #sgd_vs_formula_constant()
+    #sgd_vs_formula_linear()
+    #slock_vs_normal_comparison_linear()
+    #cooldown_length_comparing_at_eta_star()
+    eta_of_cooldown()
 # %%
