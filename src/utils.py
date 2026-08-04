@@ -5,6 +5,9 @@ import ast
 from scipy.special import zeta
 import math
 
+
+
+
 #%%
 def save_optimization_results(*args, **kwargs):
     pass
@@ -83,7 +86,7 @@ def constant_zeta_correction(alpha, d=10):
         ratio = discrete_sum / pure_integral if pure_integral != 0 else 1.0  # Avoid division by zero, return 1.0 if integral is zero
 
         return ratio
-    
+
 #%%
 if __name__ == "__main__":
     import numpy as np

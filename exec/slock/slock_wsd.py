@@ -57,6 +57,12 @@ approx_variance, exact_variance, approx_bias, exact_bias = (
 )
 #%%
 
+save_dict_to_json({str((alpha, T)): var for (alpha, T), var in approx_variance.items()}, folder=f"slock_wsd_dim={dim}", filename="variance_trajectories.json")
+save_dict_to_json({str((alpha, T)): var for (alpha, T), var in exact_variance.items()}, folder=f"slock_wsd_dim={dim}", filename="true_variance_trajectories.json")
+save_dict_to_json({str((alpha, T)): bias for (alpha, T), bias in approx_bias.items()}, folder=f"slock_wsd_dim={dim}", filename="bias_trajectories.json")
+save_dict_to_json({str((alpha, T)): bias for (alpha, T), bias in exact_bias.items()}, folder=f"slock_wsd_dim={dim}", filename="true_bias_trajectories.json")
+
+
 #Plot trajectories
 
 plt.figure(figsize=(12, 8))
@@ -149,15 +155,15 @@ print(ratios_bias)
 
 #COMPARE COOLDOWN LENGTHS
 
-cooldown_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+cooldown_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 eta = 0.001
 T_values = [1000, 5000, 10000, 20000, 50000, 100000]
-list_alphas = [1.4, 1.9, 2.5]
+list_alphas = [1.4, 1.9, 2.4]
 risks_slock = {}
 for cooldown_len in cooldown_list:
     slock_wsd = SlockWSD(model, x0, beta=beta, T_max=max(T_values), optimize=False, base_lr=eta, cooldown_len=cooldown_len)
     mode = Mode.SLOCK
-    slock_variance, diagonal_variance, slock_bias, diagonal_bias = (
+    approx_variance, true_variance, approx_bias, true_bias = (
         slock_wsd.compare_biases_variances_trajectories_different_alphas(
             T_values,
             list_alphas, 
@@ -167,7 +173,7 @@ for cooldown_len in cooldown_list:
             mode=mode,
             from_file=False)
     )
-    risks_slock[cooldown_len] = {alpha: [slock_variance[(alpha, T)] + slock_bias[(alpha, T)] for T in T_values] for alpha in list_alphas}
+    risks_slock[cooldown_len] = {alpha: [true_variance[(alpha, T)] + true_bias[(alpha, T)] for T in T_values] for alpha in list_alphas}
 # %% compare
 colors = plt.cm.viridis(np.linspace(0, 1, len(list_alphas)))
 T = max(T_values)
@@ -186,6 +192,20 @@ for alpha in list_alphas:
     plt.grid()
 plt.savefig(f"images/slock/_WSD_risk_cooldown_comparison_eta={eta}_alpha={alpha}.pdf")
 plt.show()
+
+#%%
+risks = {alpha: [risks_slock[cooldown_len][alpha][T_values.index(T)] for cooldown_len in cooldown_list] for alpha in list_alphas}
+save_dict_to_json(risks, folder=f"slock_wsd_dim={dim}", filename="risks_slock_cooldown.json")
+
+
+
+
+
+
+
+
+
+
 
 # %%
 #COMPARE BEST ETA 
@@ -220,6 +240,10 @@ plt.legend()
 plt.grid()
 plt.savefig(f"images/slock/_WSD_risk_optimal_eta_comparison_alpha={alpha}_T={T}.pdf")
 plt.show()
+
+
+
+
 # %%
 #With TRUE also
 etas = np.logspace(-4, -1, 10)
@@ -243,6 +267,7 @@ for eta in etas:
     risks_approx[eta] = approx_variance[(alpha, T)] + approx_bias[(alpha, T)]
 #%%
 eta_star = slock_wsd.compute_best_slock_eta(T=T, m_constant=Delta)
+
 
 plt.figure(figsize=(12, 8))
 color = "green"

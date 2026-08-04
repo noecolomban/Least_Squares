@@ -551,3 +551,52 @@ class SlockLinear(AsymptoticsAnalysis):
             return optimal_eta
         else:
             raise ValueError("Optimization failed to converge.")
+
+    def compute_approx_critical_batch(self, T, m_constant):
+        alpha = self.model.exponent
+        L = 1
+        beta = self.beta
+        if alpha < 2:
+            p = (alpha)/(alpha + beta )
+        if alpha > 2:
+            p = (2*alpha)/(3*alpha + 2*beta - 2)
+        gamma_star = self.compute_best_slock_eta(T, m_constant)
+        return (2/ (L*gamma_star)) ** (1/p)
+
+
+    def compute_exact_critical_batch(self, T, m_constant):
+        from scipy.optimize import root_scalar
+
+        alpha = self.model.exponent
+        beta = self.beta
+        
+        # Determine the scaling exponent p based on the spectral regime
+        if alpha < 2:
+            p = alpha / (alpha + beta)
+        else:
+            p = (2 * alpha) / (3 * alpha + 2 * beta - 2)
+            
+        gamma_star = self.compute_best_slock_eta(T, m_constant)
+        L = 1.0 
+        trace = np.sum(self.model.Lambda_vals)
+        
+        # Define the objective function derived from Assumption 5.2
+        # We want to find b where LHS (scaled lr) == RHS (stability limit)
+        def objective(b):
+            scaled_lr = (b ** p) * gamma_star
+            stability_limit = (2 * b) / (trace + L * (b - 1))
+            return scaled_lr - stability_limit
+
+        try:
+            # Solve the equation numerically within a reasonable bracket
+            # b_crit is theoretically >= 1, and we set a high upper bound (e.g., 1e8)
+            res = root_scalar(objective, bracket=[1.0, 1e8], method='brentq')
+            
+            # Round up to the nearest integer to ensure strict stability
+            return max(1, int(np.ceil(res.root)))
+            
+        except ValueError:
+            # Fallback to the analytical approximation if the root is outside the bracket
+            # (This happens if gamma_star is extremely small, making b_crit gigantic)
+            b_approx = (2 / (L * gamma_star)) ** (1 / p)
+            return max(1, int(np.ceil(b_approx)))

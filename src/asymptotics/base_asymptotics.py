@@ -346,3 +346,6 @@ class AsymptoticsAnalysis(ABC):
         #use the previous function but only return the variance trajectories for easier plotting
         laplace_variance, diagonal_variance, _, _ = self.compare_biases_variances_trajectories_different_alphas(T_values, list_alphas, m_exponent=self.model.exponent, m_constant=1, changing_dim=changing_dim, K=K, mode=mode)
         return laplace_variance, diagonal_variance
+
+
+

@@ -319,3 +319,74 @@ plt.grid()
 plt.savefig(f"images/slock/CONSTANT_BATCH_comparison_eta_ratio_T={T}_Delta={Delta}.pdf")
 plt.show()
 # %%
+
+
+#STEPS TO RISK
+
+
+Tmax = 50000
+alphas = [1.4, 1.8, 2.2, 2.6]
+
+
+RISK_TO_HAVE = 1e-3
+
+
+#%%
+batches = np.logspace(1, 4, 40, dtype=int)  # Batch sizes from 1 to 1000
+Times = np.logspace(1, 3, 200, dtype=int)  # From 10 to 100000
+steps_to_risk = {}
+for alpha in alphas:
+    slock_linear._update_model_for_alpha(alpha)  # Update model for the specific alpha
+    steps_to_risk[alpha] = {}
+    for batch in batches:
+        print(f"Computing for alpha={alpha}, batch size {batch}...")
+        #eta_star = batch_factor_linear(batch, alpha, beta)*slock_linear.compute_best_slock_eta(Tmax, m_constant=Delta)
+        for T in Times:
+            eta_star = batch_factor_linear(batch, alpha, beta)*slock_linear.compute_best_slock_eta(T, m_constant=Delta)
+            print(f"Computing for alpha={alpha}, batch size {batch} and T={T}...")
+            slock_linear._setup_for_T(T, base_lr=eta_star)  # Update schedule for new T
+            bias, variance = slock_linear.compute_slock_biases_and_variances([T], batch=batch)
+            total_risk = bias[T] + variance[T]
+            print(total_risk)
+            if total_risk <= RISK_TO_HAVE:
+                steps_to_risk[alpha][batch] = T
+                break
+        if batch not in steps_to_risk[alpha]:
+            steps_to_risk[alpha][batch] = Tmax  # If not found, set to Tmax
+
+#%%
+# Compute b_crits
+b_crits = {}
+for alpha in alphas:
+    T_values = steps_to_risk[alpha].values()
+    slock_linear._update_model_for_alpha(alpha)  # Update model for the specific alpha
+    b_crits[alpha] = {}
+    for T in T_values:
+        b_crits[alpha][T] = slock_linear.compute_exact_critical_batch(T, m_constant=Delta)
+
+#%%
+plt.figure(figsize=(12, 8))
+for alpha in alphas:
+    color = plt.cm.viridis(alphas.index(alpha) / len(alphas))
+    plt.plot(list(steps_to_risk[alpha].keys()), list(steps_to_risk[alpha].values()), marker='o', label =f"alpha={alpha}", color=color)
+    plt.plot(list(b_crits[alpha].values()), list(b_crits[alpha].keys()), linestyle="--", marker='.', label=f"alpha={alpha} (critical batch)", color=color)
+    plt.xlabel("Batch Size")
+    plt.ylabel(f"Steps to Achieve Risk <= {RISK_TO_HAVE}")
+    plt.title(f"Steps to Achieve Risk <= {RISK_TO_HAVE} for Different Batch Sizes; alpha={alpha}, Tmax={Tmax}")
+    plt.grid()
+plt.xlim(50, 100000)
+plt.ylim(10, 1000)
+plt.yscale('log')
+plt.xscale('log')
+plt.legend()
+plt.grid()
+plt.show()
+
+
+#%%
+b_crits = {alpha: {float(b_crits[alpha][T]): int(T) for T in steps_to_risk[alpha].values()} for alpha in alphas}
+steps_to_risk = {alpha: {int(batch): float(steps_to_risk[alpha][batch]) for batch in steps_to_risk[alpha]} for alpha in alphas}
+# %%
+save_dict_to_json(steps_to_risk, f"slock_linear_dim={dim}", f"steps_to_risk.json")
+save_dict_to_json(b_crits, f"slock_linear_dim={dim}", f"critical_batches.json")
+# %%
