@@ -202,8 +202,8 @@ plt.grid()
 plt.savefig(f"images/slock/BATCH_comparison_risk_bT={bT}_eta_star_for_each_batch.pdf")
 plt.show()
 # %% APPROX
-list_alphas = [1.4, 1.9, 2.5]
-batches = [1, 5, 10, 20, 50, 100, 200, 500, 600, 700,  1000, 1500, 2000, 2100]
+list_alphas = [1.4, 1.8, 2.2, 2.6]
+batches = np.logspace(0, 4, 20, dtype=int)  # Batch sizes from 1 to 10000
 approx_biases, approx_variances = {}, {}
 true_biases, true_variances = {}, {}
 for batch in batches:
@@ -225,7 +225,7 @@ for batch in batches:
         true_bias, true_variance = slock_linear.compute_slock_biases_and_variances([T], batch=batch)
         true_biases[batch][alpha], true_variances[batch][alpha] = true_bias[T], true_variance[T]
 #%%
-batches = [1, 5, 10, 20, 50, 100, 200, 500, 600, 700,  1000, 1500, 2000, 2100]
+batches = np.logspace(0, 4, 20, dtype=int)  # Batch sizes from 1 to 10000
 plt.figure(figsize=(12, 8))
 for alpha in list_alphas:
     X = [batch for batch in batches]
@@ -277,11 +277,25 @@ plt.grid()
 plt.savefig(f"images/slock/BATCH_comparison_approx_risk_bT={bT}_eta_star_for_each_batch.pdf")
 plt.show()  
 # %%
-
-save_dict_to_json(true_biases, f"slock_linear_dim={dim}", f"BATCH_comparison_bias_bT={bT}_eta_star_for_each_batch.json")
-save_dict_to_json(true_variances, f"slock_linear_dim={dim}", f"BATCH_comparison_variance_bT={bT}_eta_star_for_each_batch.json")
+true_biases_to_save = {float(batch): true_biases[batch] for batch in true_biases}
+save_dict_to_json(true_biases_to_save, f"slock_linear_dim={dim}", f"BATCH_comparison_bias_bT={bT}_eta_star_for_each_batch.json")
+true_variances_to_save = {float(batch): true_variances[batch] for batch in true_variances}
+save_dict_to_json(true_variances_to_save, f"slock_linear_dim={dim}", f"BATCH_comparison_variance_bT={bT}_eta_star_for_each_batch.json")
 #%%
+#%%
+bmax = {}
+batches_list_max = np.linspace(1, 10000, dtype=int)
+for alpha in list_alphas:
+    slock_linear._update_model_for_alpha(alpha)  # Update model for the specific alpha
+    for batch in batches_list_max:
+        T = bT // batch  # Adjust T to keep b*T constant
+        bmax[batch] = slock_linear.compute_exact_critical_batch(T, m_constant=Delta)
+        if bmax[batch] < batch:
+            print(f"Warning: For alpha={alpha}, batch={batch}, T={T}, the critical batch size is {bmax[batch]}, which is less than the current batch size.")
+            break
 
+
+#%%
 ###
 #COMPARE BEST ETAS vs NUMERICAL OPTIMIZATION
 alphas = [1+1e-6, 1.001, 1.01, 1.1, 1.5, 2.5, 10, 20 , 50]
@@ -328,12 +342,12 @@ Tmax = 50000
 alphas = [1.4, 1.8, 2.2, 2.6]
 
 
-RISK_TO_HAVE = 1e-3
+RISK_TO_HAVE = 1e-5
 
 
 #%%
-batches = np.logspace(1, 4, 40, dtype=int)  # Batch sizes from 1 to 1000
-Times = np.logspace(1, 3, 200, dtype=int)  # From 10 to 100000
+batches = np.logspace(2.5, 5, 40, dtype=int)  # Batch sizes from 1 to 1000
+Times = np.logspace(2, 5, 200, dtype=int)  # From 10 to 100000
 steps_to_risk = {}
 for alpha in alphas:
     slock_linear._update_model_for_alpha(alpha)  # Update model for the specific alpha
@@ -374,8 +388,8 @@ for alpha in alphas:
     plt.ylabel(f"Steps to Achieve Risk <= {RISK_TO_HAVE}")
     plt.title(f"Steps to Achieve Risk <= {RISK_TO_HAVE} for Different Batch Sizes; alpha={alpha}, Tmax={Tmax}")
     plt.grid()
-plt.xlim(50, 100000)
-plt.ylim(10, 1000)
+plt.xlim(200, 100000)
+plt.ylim(00, 10000)
 plt.yscale('log')
 plt.xscale('log')
 plt.legend()

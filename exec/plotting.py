@@ -606,13 +606,13 @@ def batch_bT_constant():
     print("Results loaded for Batch Size vs Risk comparison.")
     batches = sorted(set(int(batch) for batch in biases.keys()))
     list_alphas = sorted(set(float(alpha) for alpha in biases[batches[0]].keys()))
-    for alpha in [1.4, 1.9, 2.5]:
+    for alpha in list_alphas:
         Y0 = {alpha: biases[1][alpha] + variances[1][alpha] for alpha in list_alphas}
         plot(
             X=batches,
             Y=[(biases[batch][alpha] + variances[batch][alpha]) / Y0[alpha] for batch in batches],
             xlabel=r"Batch Size $b$",
-            ylabel=r"Risk / Risk($b=1$)",
+            ylabel=r"$\mathcal R_{N/b}^{(b)} / \mathcal R_T$",
             filename=f"batch_risk_comparison.pdf",
             label=rf"$\alpha$ = {alpha}",
             save=False,
@@ -625,10 +625,27 @@ def batch_bT_constant():
             yscale='linear',
             marker='.',
         )
-    plt.xlim(1, 2000)
-    plt.ylim(0.995, 1.03)
+    plt.xlim(1, 10000)
+    plt.ylim(0.995, 1.1)
+    ax = plt.gca()
+    
+    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    solid_lines = solid_lines[:len(list_alphas)]
+    dashed_lines = [line for line in ax.lines if line.get_linestyle() in ['--', 'dashed']]
+
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper left"
+    )
+    plt.tight_layout()
     plt.savefig(folder / "batch_risk_comparison.pdf",
-                bbox_inches='tight', pad_inches=0.1)
+                )
     plt.show()
 
 
@@ -685,25 +702,27 @@ def steps_to_fixed_risk():
             linestyle='--',
             linewidth=1.
         )
-    plt.xlim(50, 10000)
-    plt.ylim(10, 1000)
+    plt.xlim(500, 100000)
+    plt.ylim(100, 10000)
     ax = plt.gca()
 
-    grouped_label = r"$T$ to reach $\mathcal R_T = r$, $\alpha \in \{" + ", ".join([f"{alpha}" for alpha in alphas]) + r"\}$"
+    grouped_label_1 = r"$T$ to reach $\mathcal R_T^{(b)} = r$, $\alpha \in \{" + ", ".join([f"{alpha}" for alpha in alphas]) + r"\}$"
+    grouped_label_2 = r"$b_{\mathrm{max}}$, $\alpha \in \{" + ", ".join([f"{alpha}" for alpha in alphas]) + r"\}$"
     
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     solid_lines = solid_lines[:len(alphas)]
+    dashed_lines = [line for line in ax.lines if line.get_linestyle() in ['--', 'dashed']]
 
     # Create the custom legend using HandlerTuple to combine the lines horizontally
     ax.legend(
-        [tuple(solid_lines)], 
-        [grouped_label], 
+        [tuple(solid_lines), tuple(dashed_lines)], 
+        [grouped_label_1, grouped_label_2],
         handler_map={tuple: VerticalLineHandler()},
         handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
         loc="upper right"
     )
-    plt.savefig(folder / "steps_to_fixed_risk.pdf",
-                bbox_inches='tight', pad_inches=0.1)
+    plt.tight_layout()
+    plt.savefig(folder / "steps_to_fixed_risk.pdf")
     plt.show()
 
 if __name__ == "__main__":
@@ -717,6 +736,7 @@ if __name__ == "__main__":
     #cooldown_length_comparing_at_eta_star()
     #eta_of_cooldown()
     #cooldown_length_comparing_fixed_eta()
+    batch_bT_constant()
     steps_to_fixed_risk()
 
 # %%
