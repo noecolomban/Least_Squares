@@ -28,7 +28,7 @@ x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 optimize = False
 T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000]
 #T_values = [10, 20, 50, 100, 200, 500, 1000, 2000]
-list_alphas = [1.01, 1.1, 1.5, 2.5, 10]
+list_alphas = [1.1, 1.3, 1.5, 1.7, 1.9, 2.1, 2.3, 2.5]
 
 eta = 0.001
 slock_linear = SlockLinear(model, x0, beta=beta, T_max=max(T_values), optimize=optimize, base_lr=eta)
@@ -142,13 +142,13 @@ print(ratios_variance)
 print(ratios_bias)
 # %%
 #COMPARE TRUE SLOCK vs NORMAL
-dim = 1000
+dim = 100
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=1.3)
 x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 T_values = [100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000]
 
 
-list_alphas = [1.01, 1.4, 1.9, 2.5, 10]
+list_alphas = [1.1, 1.3, 1.5, 1.7, 1.9, 2.1, 2.3, 2.5]
 
 slock_linear = SlockLinear(model, x0, beta=beta, T_max=max(T_values), optimize=optimize, base_lr=eta)
 

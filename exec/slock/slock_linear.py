@@ -15,7 +15,7 @@ from src.asymptotics import (
 from src.utils import save_dict_to_json
 # %%
 dim = 100
-sigma = 1
+sigma = 0.1
 exponent = 2 #alpha
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
 
@@ -26,9 +26,9 @@ diff0 = Delta * np.array([1/i**beta for i in range(1, dim+1)])
 x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 optimize = False
-T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000, 500000]
+T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000]
 #T_values = [10, 20, 50, 100, 200, 500, 1000, 2000]
-list_alphas = [1.4, 1.9, 2.4]
+list_alphas = [1.4, 1.8, 2.2, 2.6]
 
 eta = 0.001
 slock_linear = SlockLinear(model, x0, beta=beta, T_max=max(T_values), optimize=optimize, base_lr=eta)
@@ -151,8 +151,8 @@ print(ratios_bias)
 
 #ETAS
 T = 100000
-list_alphas = [1.4, 1.9, 2.5]
-etas = np.logspace(-4, -2, 10)
+list_alphas = [1.4, 1.8, 2.2, 2.6]
+etas = np.logspace(-3, -1, 10)
 eta_stars = {}
 for alpha in list_alphas:
     slock_linear._update_model_for_alpha(alpha)

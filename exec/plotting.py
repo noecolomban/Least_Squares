@@ -118,14 +118,15 @@ def eta_of_cooldown():
     plt.gca().xaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
     results_eta_ratio = read_dict_from_json(folder="figures", filename="eta_ratio_vs_cooldown.json")
     list_c, results_to_print = results_eta_ratio[400].keys(), {T: [results_eta_ratio[T][c] for c in results_eta_ratio[T]] for T in results_eta_ratio}
+    X = [float(c) for c in list_c] 
     for T in results_to_print:
         print(f"T={T}: {results_to_print[T]}")
         plot(
             label=fr"$T={T}$",
-            X=list_c,
+            X=X,
             Y=results_to_print[T],
             xlabel="Cooldown Length (c)",
-            ylabel=r"$\log(\widetilde\gamma^*_1) - \log(\widetilde\gamma^*_c)$",
+            ylabel=r"$\log(\widetilde\gamma^*(T;1)) - \log(\widetilde\gamma^*(T;c))$",
             filename="eta_ratio_vs_cooldown.pdf",
             schedule=ScheduleCmap.WSD,
             intensity=0.5 + 0.5 * (list(results_to_print.keys()).index(T) / max(1, len(results_to_print)-1)),
@@ -133,7 +134,18 @@ def eta_of_cooldown():
             close=False,
             show=False,
         )
-    plt.legend()
+    ax = plt.gca()
+    grouped_label_1 = r"$T \in \{" + ", ".join([f"{T}" for T in list(results_to_print.keys())]) + r"\}$"
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right"
+    )
+    plt.tight_layout()
     plt.savefig(folder / "eta_ratio_vs_cooldown.pdf", bbox_inches='tight', pad_inches=0.1)
     plt.show()
 
@@ -245,12 +257,11 @@ def sgd_vs_formula_linear():
     )
 
 
-
-def asymptotics_vs_true_constant():
-    results_var_true = read_dict_from_json(folder="slock_constant_dim=1000", filename="true_variance_trajectories.json")
-    results_var_approx = read_dict_from_json(folder="slock_constant_dim=1000", filename="variance_trajectories.json")
-    results_bias_true = read_dict_from_json(folder="slock_constant_dim=1000", filename="true_bias_trajectories.json")
-    results_bias_approx = read_dict_from_json(folder="slock_constant_dim=1000", filename="bias_trajectories.json")
+def asymptotics_vs_true_constant(dim=100):
+    results_var_true = read_dict_from_json(folder=f"slock_constant_dim={dim}", filename="true_variance_trajectories.json")
+    results_var_approx = read_dict_from_json(folder=f"slock_constant_dim={dim}", filename="variance_trajectories.json")
+    results_bias_true = read_dict_from_json(folder=f"slock_constant_dim={dim}", filename="true_bias_trajectories.json")
+    results_bias_approx = read_dict_from_json(folder=f"slock_constant_dim={dim}", filename="bias_trajectories.json")
     print("Results loaded for Asymptotics vs True comparison.")
     list_alphas = sorted(set(alpha for (alpha, T) in results_var_true.keys()))
     T_values = sorted(set(T for (alpha, T) in results_var_true.keys()))
@@ -262,9 +273,9 @@ def asymptotics_vs_true_constant():
         plot(
             X=T_values,
             Y=[ratios_variance[(alpha, T)] for T in T_values],
-            xlabel="T (log scale)",
+            xlabel=r"$T$ (log scale)",
             ylabel=r"$\widetilde V_T / V_T$",
-            filename=f"variance_ratio_constant.pdf",
+            filename=f"variance_ratio_constant_dim={dim}.pdf",
             label=rf"$\alpha$ = {alpha}",
             save=True,
             show=False,
@@ -276,32 +287,64 @@ def asymptotics_vs_true_constant():
             yscale='log',
             marker='.',
         )
+    ax = plt.gca()
+        
+    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    solid_lines = solid_lines[:len(list_alphas)]
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right",
+    )
+    plt.tight_layout()
+    plt.savefig(folder / f"variance_ratio_constant_dim={dim}.pdf")
     plt.show()
+
+
     for alpha in list_alphas:
         plot(
             X=T_values,
             Y=[ratios_bias[(alpha, T)] for T in T_values],
-            xlabel="T (log scale)",
+            xlabel=r"$T$ (log scale)",
             ylabel=r"$\widetilde B_T / B_T$",
-            filename=f"bias_ratio_constant.pdf",
+            filename=f"bias_ratio_constant_dim={dim}.pdf",
             label=rf"$\alpha$ = {alpha}",
-            save=True,
+            save=False,
             show=False,
             close=False,
-            legend=True,
+            legend=False,
             schedule=ScheduleCmap.CONSTANT,
             intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
             xscale='log',
             yscale='log',
             marker='.',
         )
+    ax = plt.gca()
+        
+    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    solid_lines = solid_lines[:len(list_alphas)]
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right",
+    )
+    plt.tight_layout()
+    plt.savefig(folder / f"bias_ratio_constant_dim={dim}.pdf")
     plt.show()
                     
-def asymptotics_vs_true_linear():
-    results_var_true = read_dict_from_json(folder="slock_linear_dim=1000", filename="true_variance_trajectories.json")
-    results_var_approx = read_dict_from_json(folder="slock_linear_dim=1000", filename="variance_trajectories.json")
-    results_bias_true = read_dict_from_json(folder="slock_linear_dim=1000", filename="true_bias_trajectories.json")
-    results_bias_approx = read_dict_from_json(folder="slock_linear_dim=1000", filename="bias_trajectories.json")
+def asymptotics_vs_true_linear(dim=100):
+    results_var_true = read_dict_from_json(folder=f"slock_linear_dim={dim}", filename="true_variance_trajectories.json")
+    results_var_approx = read_dict_from_json(folder=f"slock_linear_dim={dim}", filename="variance_trajectories.json")
+    results_bias_true = read_dict_from_json(folder=f"slock_linear_dim={dim}", filename="true_bias_trajectories.json")
+    results_bias_approx = read_dict_from_json(folder=f"slock_linear_dim={dim}", filename="bias_trajectories.json")
     print("Results loaded for Asymptotics vs True comparison.")
     list_alphas = sorted(set(alpha for (alpha, T) in results_var_true.keys()))
     T_values = sorted(set(T for (alpha, T) in results_var_true.keys()))
@@ -313,46 +356,74 @@ def asymptotics_vs_true_linear():
         plot(
             X=T_values,
             Y=[ratios_variance[(alpha, T)] for T in T_values],
-            xlabel="T (log scale)",
+            xlabel=r"$T$ (log scale)",
             ylabel=r"$\widetilde V_T / V_T$",
             filename=f"variance_ratio_linear.pdf",
             label=rf"$\alpha$ = {alpha}",
-            save=True,
+            save=False,
             show=False,
             close=False,
-            legend=True,
+            legend=False,
             schedule=ScheduleCmap.LINEAR,
             intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
             xscale='log',
             yscale='log',
             marker='.',
         )
+    ax = plt.gca()  
+    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    solid_lines = solid_lines[:len(list_alphas)]
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right",
+    )
+    plt.tight_layout()
+    plt.savefig(folder / f"variance_ratio_linear.pdf")
     plt.show()
     for alpha in list_alphas:
         plot(
             X=T_values,
             Y=[ratios_bias[(alpha, T)] for T in T_values],
-            xlabel="T (log scale)",
+            xlabel=r"$T$ (log scale)",
             ylabel=r"$\widetilde B_T / B_T$",
             filename=f"bias_ratio_linear.pdf",
             label=rf"$\alpha$ = {alpha}",
-            save=True,
+            save=False,
             show=False,
             close=False,
-            legend=True,
+            legend=False,
             schedule=ScheduleCmap.LINEAR,
             intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
             xscale='log',
             yscale='log',
             marker='.',
         )
+    ax = plt.gca()  
+    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    solid_lines = solid_lines[:len(list_alphas)]
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right",
+    )
+    plt.tight_layout()
+    plt.savefig(folder / f"bias_ratio_linear.pdf")
     plt.show()
 
-def asymptotics_vs_true_wsd():
-    results_var_true = read_dict_from_json(folder="slock_wsd_dim=100", filename="true_variance_trajectories.json")
-    results_var_approx = read_dict_from_json(folder="slock_wsd_dim=100", filename="variance_trajectories.json")
-    results_bias_true = read_dict_from_json(folder="slock_wsd_dim=100", filename="true_bias_trajectories.json")
-    results_bias_approx = read_dict_from_json(folder="slock_wsd_dim=100", filename="bias_trajectories.json")
+def asymptotics_vs_true_wsd(dim=100):
+    results_var_true = read_dict_from_json(folder=f"slock_wsd_dim={dim}", filename="true_variance_trajectories.json")
+    results_var_approx = read_dict_from_json(folder=f"slock_wsd_dim={dim}", filename="variance_trajectories.json")
+    results_bias_true = read_dict_from_json(folder=f"slock_wsd_dim={dim}", filename="true_bias_trajectories.json")
+    results_bias_approx = read_dict_from_json(folder=f"slock_wsd_dim={dim}", filename="bias_trajectories.json")
     print("Results loaded for Asymptotics vs True comparison.")
     list_alphas = sorted(set(alpha for (alpha, T) in results_var_true.keys()))
     T_values = sorted(set(T for (alpha, T) in results_var_true.keys()))
@@ -368,16 +439,30 @@ def asymptotics_vs_true_wsd():
             ylabel=r"$\widetilde V_T / V_T$",
             filename=f"variance_ratio_wsd.pdf",
             label=rf"$\alpha$ = {alpha}",
-            save=True,
+            save=False,
             show=False,
             close=False,
-            legend=True,
+            legend=False,
             schedule=ScheduleCmap.WSD,
             intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
             xscale='log',
             yscale='log',
             marker='.',
         )
+    ax = plt.gca()
+    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    solid_lines = solid_lines[:len(list_alphas)]
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right",
+    )
+    plt.tight_layout()
+    plt.savefig(folder / f"variance_ratio_wsd.pdf")
     plt.show()
     for alpha in list_alphas:
         plot(
@@ -397,6 +482,20 @@ def asymptotics_vs_true_wsd():
             yscale='log',
             marker='.',
         )
+    ax = plt.gca()    
+    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    solid_lines = solid_lines[:len(list_alphas)]
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right",
+    )
+    plt.tight_layout()
+    plt.savefig(folder / f"bias_ratio_wsd.pdf")
     plt.show()
 
 def eta_optimization_constant():
@@ -409,7 +508,7 @@ def eta_optimization_constant():
         plot(
             X=eta_values,
             Y=[results_risks[alpha][str(eta)] for eta in eta_values],
-            xlabel=r"$\eta$",
+            xlabel=r"$\gamma$",
             ylabel="Risk",
             filename=f"eta_opt_constant.pdf",
             label=rf"$\alpha$ = {alpha}",
@@ -432,9 +531,24 @@ def eta_optimization_constant():
     plt.ylim(2e-5, 6*1e-5)
 
     ax = plt.gca()
-    ax.set_xticks([1e-3, 2e-3, 5e-3, 1e-2])
+    ax.set_xticks([1e-3, 1e-2])
+    #ax.set_yticks([1e-3, 1e-2])
     ax.xaxis.set_minor_formatter(ticker.NullFormatter())
-    plt.subplots_adjust(left=0.18, right=0.95, bottom=0.15, top=0.95)
+    # plt.subplots_adjust(left=0.18, right=0.95, bottom=0.15, top=0.95)
+    # ax.set_position([0.18, 0.15, 0.75, 0.75])
+    grouped_label_1 = r"$\mathcal R_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_2 = r"$\widetilde \gamma^*(T), \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    dashed_lines = [line for line in ax.lines if line.get_linestyle() in ['--', 'dashed']]
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines), tuple(dashed_lines)], 
+        [grouped_label_1, grouped_label_2],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right"
+    )
+    plt.tight_layout()
     plt.savefig(folder / "eta_opt_constant.pdf")
     plt.show()
 
@@ -449,7 +563,7 @@ def eta_optimization_linear():
         plot(
             X=eta_values,
             Y=[results_risks[alpha][str(eta)] for eta in eta_values],
-            xlabel=r"$\eta$",
+            xlabel=r"$\gamma$",
             ylabel="Risk",
             filename=f"eta_opt_linear.pdf",
             label=rf"$\alpha$ = {alpha}",
@@ -468,31 +582,46 @@ def eta_optimization_linear():
         plt.axvline(x=results_eta_opt[alpha], color=ScheduleCmap.LINEAR.get_shade(intensity), linestyle='--', label=rf"$\tilde\eta^*$ for $\alpha$ = {alpha}")
     plt.legend()
     
-    plt.xlim(2e-4, 1e-2)
-    plt.ylim(1e-4, 2e-3)
+    plt.xlim(2e-3, 1e-1)
+    plt.ylim(4e-6, 1e-4)
 
     ax = plt.gca()
-    ax.set_xticks([5e-4, 1e-3, 2e-3, 5e-3, 1e-2])
-    ax.xaxis.set_minor_formatter(ticker.NullFormatter())
-    plt.subplots_adjust(left=0.18, right=0.95, bottom=0.15, top=0.95)
+    # ax.set_xticks([1e-3, 2e-3, 5e-3, 1e-2, 1e-1])
+    # ax.xaxis.set_minor_formatter(ticker.NullFormatter())
+    # plt.subplots_adjust(left=0.18, right=0.95, bottom=0.15, top=0.95)
+    # ax.set_position([0.18, 0.15, 0.75, 0.75])
+    grouped_label_1 = r"$\mathcal R_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_2 = r"$\widetilde \gamma^*(T), \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    dashed_lines = [line for line in ax.lines if line.get_linestyle() in ['--', 'dashed']]
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines), tuple(dashed_lines)], 
+        [grouped_label_1, grouped_label_2],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right"
+    )
+    
+    plt.tight_layout()
     plt.savefig(folder / "eta_opt_linear.pdf")
     plt.show()
 
 
 def slock_vs_normal_comparison_linear():
-    results_variance_ratio = read_dict_from_json(folder="slock_linear_dim=1000", filename="true_slock_vs_normal_variance_ratios.json")
-    results_bias_ratio = read_dict_from_json(folder="slock_linear_dim=1000", filename="true_slock_vs_normal_bias_ratios.json")
+    results_variance_ratio = read_dict_from_json(folder="slock_linear_dim=100", filename="true_slock_vs_normal_variance_ratios.json")
+    results_bias_ratio = read_dict_from_json(folder="slock_linear_dim=100", filename="true_slock_vs_normal_bias_ratios.json")
     list_alphas = sorted(set(float(alpha) for alpha in results_variance_ratio.keys()))
     T_values = sorted(set(int(T) for T in results_variance_ratio[list_alphas[0]].keys()))
     variance_ratio = {float(alpha): {int(T): results_variance_ratio[alpha][str(T)] for T in results_variance_ratio[alpha]} for alpha in results_variance_ratio}
     bias_ratio = {float(alpha): {int(T): results_bias_ratio[alpha][str(T)] for T in results_bias_ratio[alpha]} for alpha in results_bias_ratio}
 
-    for alpha in list_alphas[:len(list_alphas)-1]:
+    for alpha in list_alphas:
         plot(
             X=T_values,
             Y=[variance_ratio[alpha][T] for T in T_values],
             xlabel=r"$T$",
-            ylabel="Var(Slock) / Var(Normal)",
+            ylabel=r"$V_T / V_T^{\mathrm{gauss}}$",
             filename=f"variance_ratio_slock_vs_normal.pdf",
             label=rf"$\alpha$ = {alpha}",
             save=False,
@@ -506,17 +635,33 @@ def slock_vs_normal_comparison_linear():
             marker='.',
         )
     plt.legend()
-    plt.ylim(0.9, 1.05)
-    plt.savefig(folder / "variance_ratio_slock_vs_normal.pdf",
-                bbox_inches='tight', pad_inches=0.1)
+    plt.ylim(0.96, 1.005)
+    ax = plt.gca()
+    
+    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    solid_lines = solid_lines[:len(list_alphas)]
+
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=3, # Increase the height of the legend box to fit all lines comfortably
+        loc="lower right"
+    )
+    plt.tight_layout()
+
+    plt.savefig(folder / "variance_ratio_slock_vs_normal.pdf",)
     plt.show()
 
-    for alpha in list_alphas[:len(list_alphas)-1]:  
+    for alpha in list_alphas:  
         plot(
             X=T_values,
             Y=[bias_ratio[alpha][T] for T in T_values],
             xlabel=r"$T$",
-            ylabel="Bias(Slock) / Bias(Normal)",
+            ylabel=r"$B_T / B_T^{\mathrm{gauss}}$",
             filename=f"bias_ratio_slock_vs_normal.pdf",
             label=rf"$\alpha$ = {alpha}",
             save=False,
@@ -530,12 +675,24 @@ def slock_vs_normal_comparison_linear():
             marker='.',
         )
     plt.legend()
-    plt.ylim(0.9, 1.025)
+    plt.ylim(0.9, 1.01)
+
+    ax = plt.gca()
+        # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=3, # Increase the height of the legend box to fit all lines comfortably
+        loc="lower right"
+    )
+    plt.tight_layout()
+
     plt.savefig(folder / "bias_ratio_slock_vs_normal.pdf",
-                bbox_inches='tight', pad_inches=0.1)
+                )
     plt.show()
 
-def cooldown_length_comparing_at_eta_star(d=1000):
+def cooldown_length_comparing_at_eta_star(d=100):
     T = 100000
     results_risks = read_dict_from_json(folder=f"slock_wsd_dim={d}", filename="true_slock_risks_cooldown.json")
     list_cooldown = [float(c) for c in results_risks.keys()]
@@ -562,8 +719,20 @@ def cooldown_length_comparing_at_eta_star(d=1000):
             yscale='linear',
             marker='.',
         )
-    plt.savefig(folder / "risk_vs_cooldown_length.pdf",
-                bbox_inches='tight', pad_inches=0.1)
+    ax = plt.gca()
+    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right"
+    )
+    plt.tight_layout()
+    plt.savefig(folder / "risk_vs_cooldown_length.pdf",)
     plt.show()
 
 def cooldown_length_comparing_fixed_eta(d=100):
@@ -593,8 +762,20 @@ def cooldown_length_comparing_fixed_eta(d=100):
             yscale='linear',
             marker='.',
         )
-    plt.savefig(folder / "risk_vs_cooldown_length_fixed_eta.pdf",
-                bbox_inches='tight', pad_inches=0.1)
+    ax = plt.gca()
+    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines)], 
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right"
+    )
+    plt.tight_layout()
+    plt.savefig(folder / "risk_vs_cooldown_length_fixed_eta.pdf",)
     plt.show()
 
 def batch_bT_constant():
@@ -612,7 +793,7 @@ def batch_bT_constant():
             X=batches,
             Y=[(biases[batch][alpha] + variances[batch][alpha]) / Y0[alpha] for batch in batches],
             xlabel=r"Batch Size $b$",
-            ylabel=r"$\mathcal R_{N/b}^{(b)} / \mathcal R_T$",
+            ylabel=r"$\mathcal R_{\lfloor N/b \rfloor}^{(b)} / \mathcal R_{N}^{(1)}$",
             filename=f"batch_risk_comparison.pdf",
             label=rf"$\alpha$ = {alpha}",
             save=False,
@@ -647,7 +828,6 @@ def batch_bT_constant():
     plt.savefig(folder / "batch_risk_comparison.pdf",
                 )
     plt.show()
-
 
 def steps_to_fixed_risk():
     # Risk = 1e-3
@@ -732,11 +912,17 @@ if __name__ == "__main__":
     #sgd_vs_formula_constant()
     #sgd_vs_formula_linear()
     #slock_vs_normal_comparison_linear()
+    #asymptotics_vs_true_constant()
+    #asymptotics_vs_true_linear()
     #asymptotics_vs_true_wsd()
+    #eta_optimization_constant()
+    #eta_optimization_linear()
     #cooldown_length_comparing_at_eta_star()
-    #eta_of_cooldown()
+    eta_of_cooldown()
+    #slock_vs_normal_comparison_linear()
+    #cooldown_length_comparing_at_eta_star()
     #cooldown_length_comparing_fixed_eta()
-    batch_bT_constant()
-    steps_to_fixed_risk()
+    #batch_bT_constant()
+    #steps_to_fixed_risk()
 
 # %%

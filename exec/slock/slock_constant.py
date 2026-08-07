@@ -21,15 +21,16 @@ model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
 
 Delta = 1
 beta = 2
+eta = 0.001
 diff0 = Delta * np.array([1/i**beta for i in range(1, dim+1)])
 #beta/2 so that m0i = Delta/i^beta, which is the form we want
 x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 
 optimize = False
 T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000]
-list_alphas = [1.4, 1.9, 2.5]
+list_alphas = [1.4, 1.8, 2.2, 2.6]
 
-slock_constant = SlockConstant(model, x0)
+slock_constant = SlockConstant(model, x0, base_lr=eta, beta=beta)
 mode = Mode.SLOCK
 
 #%% 

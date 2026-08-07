@@ -16,7 +16,7 @@ from src.asymptotics import (
 from src.utils import save_dict_to_json
 # %%
 dim = 100
-sigma = 1
+sigma = 0.1
 exponent = 1.5 #alpha
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
 
@@ -28,7 +28,7 @@ x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 optimize = False
 T_values = [10, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000]
 #T_values = [10, 20, 50, 100, 200, 500, 1000, 2000]
-list_alphas = [1.4, 1.9, 2.4]
+list_alphas = [1.4, 1.8, 2.2, 2.6]
 cooldown_len = 0.2  # Cooldown length for WSD schedule
 
 eta = 0.001
@@ -156,9 +156,9 @@ print(ratios_bias)
 #COMPARE COOLDOWN LENGTHS
 
 cooldown_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-eta = 0.001
+eta = 0.01
 T_values = [1000, 5000, 10000, 20000, 50000, 100000]
-list_alphas = [1.4, 1.9, 2.4]
+list_alphas = [1.4, 1.8, 2.2, 2.6]
 risks_slock = {}
 for cooldown_len in cooldown_list:
     slock_wsd = SlockWSD(model, x0, beta=beta, T_max=max(T_values), optimize=False, base_lr=eta, cooldown_len=cooldown_len)
@@ -289,13 +289,13 @@ plt.show()
 
 #With BEST ETA OPtimized
 def changing_dim(T, alpha):
-    return 1000
+    return 100
 
 with_eta_star = True
 
 cooldown_list = [0.1, 0.2, 0.3, 0.4,  0.5, 0.6, 0.7, 0.8, 0.9, 1]
 T = 100000
-list_alphas = [1.2, 1.8, 2.5]
+list_alphas = [1.4, 1.8, 2.2, 2.6]
 approx_slock = {}
 true_slock = {}
 for cooldown_len in cooldown_list:
