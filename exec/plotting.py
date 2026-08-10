@@ -39,6 +39,7 @@ class ScheduleCmap(Enum):
     CONSTANT = "Blues"
     LINEAR   = "Oranges"
     WSD      = "Greens"
+    MULTI    = "Purples"  # For multi-schedule or other custom schedules
 
     def get_shade(self, intensity: float):
         """
@@ -905,24 +906,122 @@ def steps_to_fixed_risk():
     plt.savefig(folder / "steps_to_fixed_risk.pdf")
     plt.show()
 
+def compare_constant_vs_wsd():
+    results_constant = read_dict_from_json(folder="slock_compare_wsd_constant", filename="CONSTANT_d=100.json")
+    results_wsd = read_dict_from_json(folder="slock_compare_wsd_constant", filename="WSD_d=100.json")
+    list_alphas = sorted(set(float(alpha) for alpha in results_constant.keys()))
+    t_values = sorted(set(int(t) for t in results_constant[list_alphas[0]].keys()))     
+    for alpha in list_alphas:
+        # Plot CONSTANT lines
+        plot(
+            X=t_values,
+            Y=[results_constant[alpha][str(t)] for t in t_values],
+            xlabel=r"Step $t$",
+            ylabel="Risk",
+            filename=f"eta_opt_constant_vs_wsd.pdf",
+            save=False,
+            show=False,
+            close=False,
+            legend=False,
+            schedule=ScheduleCmap.CONSTANT,
+            intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+            xscale='linear',
+            yscale='log',
+            marker='',
+        )
+        # Plot WSD lines
+        plot(
+            X=t_values,
+            Y=[results_wsd[alpha][str(t)] for t in t_values],
+            xlabel=r"Step $t$",
+            ylabel=r"$\mathcal R_{t \mid T}$",
+            filename=f"eta_opt_constant_vs_wsd.pdf",
+            save=False,
+            show=False,
+            close=False,
+            legend=False,
+            schedule=ScheduleCmap.WSD,
+            intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+            xscale='linear',
+            yscale='log',
+            marker='',
+        )
+        
+    ax = plt.gca()    
+    
+    grouped_label_1 = r"Constant, $\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_2 = r"WSD, $\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    
+    solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
+    
+    # Lines were plotted in an alternating pattern: Constant, WSD, Constant, WSD...
+    # Use array slicing with a step of 2 to separate them properly
+    solid_lines_1 = solid_lines[0::2]  # Even indices: all Constant lines
+    solid_lines_2 = solid_lines[1::2]  # Odd indices: all WSD lines
+    
+    # Create the custom legend using HandlerTuple to combine the lines horizontally
+    ax.legend(
+        [tuple(solid_lines_1), tuple(solid_lines_2)], 
+        [grouped_label_1, grouped_label_2],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
+        loc="upper right"
+    )
+    
+    plt.tight_layout()
+    plt.savefig(folder / "eta_opt_constant_vs_wsd.pdf")
+    plt.show()
+    plt.close()
+    #plot the ratio wsd/cst
+    for alpha in list_alphas:
+        plot(
+            X=t_values,
+            Y=[results_wsd[alpha][str(t)] / results_constant[alpha][str(t)] for t in t_values],
+            xlabel=r"Step $t$",
+            ylabel=r"$\mathcal R_{t\mid T}^{\mathrm{wsd}} / \mathcal R_{t\mid T}^{\mathrm{constant}}$",
+            filename=f"eta_opt_constant_vs_wsd_ratio.pdf",
+            save=False,
+            show=False,
+            close=False,
+            legend=False,
+            schedule=ScheduleCmap.MULTI,
+            intensity=0.5 + 0.5 * (list_alphas.index(alpha) / max(1, len(list_alphas)-1)),
+            xscale='linear',
+            yscale='linear',
+            marker='',
+        )
+    ax = plt.gca()
+    grouped_label_1 = r"WSD / Constant, $\alpha \in \{" +", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    ax.legend(
+        [tuple(line for line in ax.lines if line.get_linestyle() in ['-', 'solid'])],
+        [grouped_label_1],
+        handler_map={tuple: VerticalLineHandler()},
+        handleheight=2.5,
+        loc="lower left",
+    )
+    plt.tight_layout()
+    plt.savefig(folder / "eta_opt_constant_vs_wsd_ratio.pdf")
+    plt.show()
+
 if __name__ == "__main__":
             
     #wsd(c=0.4)
     #asymptotics_vs_true_constant()
     #sgd_vs_formula_constant()
     #sgd_vs_formula_linear()
-    #slock_vs_normal_comparison_linear()
+    slock_vs_normal_comparison_linear()
     #asymptotics_vs_true_constant()
     #asymptotics_vs_true_linear()
     #asymptotics_vs_true_wsd()
     #eta_optimization_constant()
     #eta_optimization_linear()
     #cooldown_length_comparing_at_eta_star()
-    eta_of_cooldown()
+    #eta_of_cooldown()
     #slock_vs_normal_comparison_linear()
     #cooldown_length_comparing_at_eta_star()
     #cooldown_length_comparing_fixed_eta()
     #batch_bT_constant()
     #steps_to_fixed_risk()
+    #compare_constant_vs_wsd()
 
 # %%

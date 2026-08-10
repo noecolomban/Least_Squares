@@ -143,6 +143,7 @@ print(ratios_bias)
 # %%
 #COMPARE TRUE SLOCK vs NORMAL
 dim = 100
+eta = .001
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=1.3)
 x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
 T_values = [100, 500, 1000, 5000, 10000, 20000, 50000, 100000, 200000]
@@ -161,7 +162,7 @@ for alpha in list_alphas:
     true_normal_bias[alpha], true_normal_variance[alpha] = {}, {}
     for T in T_values:
         print(f"Computing true SLOCK and Normal biases and variances for alpha={alpha}, T={T}...")
-        eta = slock_linear.compute_best_slock_eta(T, Delta)
+        #eta = slock_linear.compute_best_slock_eta(T, Delta)
         slock_linear._setup_for_T(T, base_lr=eta)
         true_slock_bias[alpha][T], true_slock_variance[alpha][T] = slock_linear.compute_slock_biases_and_variances([T])
         true_normal_bias[alpha][T], true_normal_variance[alpha][T] = slock_linear.compute_true_biases_and_variances([T])

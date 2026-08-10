@@ -1,0 +1,81 @@
+#%% CONSTANT SCHEDULE
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from src.least_squares import PowerLawRegression, compute_power_x0
+from scipy.special import zeta
+from src.asymptotics import (
+    LaplaceConstant,  
+    SlockWSD,
+    SlockConstant,
+    Mode,
+    compute_different_sigmas,
+)
+from src.utils import save_dict_to_json
+# %%
+dim = 100
+sigma = 0.1
+exponent = 2 #alpha
+model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
+
+Delta = 1
+beta = 2
+#beta/2 so that m0i = Delta/i^beta, which is the form we want
+x0 = compute_power_x0(dim, model.x_star.flatten(), model.Q, beta=beta/2)
+
+
+optimize = False
+T = 100000
+list_alphas = [1.4, 1.8, 2.2, 2.6]
+
+slock_constant = SlockConstant(model, x0, beta=beta)
+mode = Mode.SLOCK
+
+
+#%%
+#Compute best etas
+risks_constant = {}
+best_etas = {}
+for alpha in list_alphas:
+    print(f"Computing CONSTANT for alpha={alpha}...")
+    slock_constant._update_model_for_alpha(alpha)
+    best_etas[alpha] = slock_constant.compute_best_slock_eta(T, m_constant=Delta)
+    slock_constant._setup_for_T(T, base_lr=best_etas[alpha])
+    risks_constant[alpha] = slock_constant.sgd.compute_all_slock_risks()
+
+#%%
+#Compare with WSD
+
+c=0.2
+risks_wsd = {}
+slock_wsd = SlockWSD(model, x0, T_max=T, beta=beta, cooldown_len=c)
+for alpha in list_alphas:
+    print(f"Computing WSD for alpha={alpha}...")
+    slock_wsd._update_model_for_alpha(alpha)
+    slock_wsd._setup_for_T(T, base_lr=best_etas[alpha])
+    risks_wsd[alpha] = slock_wsd.sgd.compute_all_slock_risks()
+
+
+#%%
+#plot risks
+
+plt.figure(figsize=(10, 6))
+for alpha in list_alphas:
+    plt.plot(np.arange(T), [risks_constant[alpha][t] for t in range(T)], label=f"CONSTANT alpha={alpha}")
+    plt.plot(np.arange(T), [risks_wsd[alpha][t] for t in range(T)], label=f"WSD alpha={alpha}", linestyle="--")
+plt.xscale("log")
+plt.yscale("log")
+plt.xlabel("Iteration")
+plt.ylabel("Risk")
+plt.title("Risk trajectories for SLOCK and WSD with different alphas")
+plt.legend()
+plt.grid()
+plt.show()
+# %%
+risk_wsd = {alpha: {t: risks_wsd[alpha][t] for t in range(T)} for alpha in list_alphas}
+risk_constant = {alpha: {t: risks_constant[alpha][t] for t in range(T)} for alpha in list_alphas}
+
+save_dict_to_json(risk_wsd, "slock_compare_wsd_constant", f"WSD_d={dim}.json")
+save_dict_to_json(risk_constant, "slock_compare_wsd_constant", f"CONSTANT_d={dim}.json")
+# %%
