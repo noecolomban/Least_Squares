@@ -39,7 +39,7 @@ schedule = ConstantSchedule(steps=max(T_values), base_lr=eta)
 sgd = SGD(model, x0, schedule)
 
 #%%
-losses = sgd.sample_slock(show=False, n_samples=50)
+losses = sgd.sample_slock(show=False, n_samples=100)
 
 biases, variances = slock_constant.compute_slock_biases_and_variances(T_values)
 slock_risks = {T: biases[T] + variances[T] for T in T_values}

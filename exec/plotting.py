@@ -16,6 +16,7 @@ from matplotlib.lines import Line2D
 folder = pathlib.Path(__file__).parent.resolve() / "plots"
 folder.mkdir(exist_ok=True)
 
+
 #DIMENSIONS = (2, 1.5)
 #DIMENSIONS = (3.5, 2.5)  # Width and height in inches for LaTeX document
 DIMENSIONS = (4,3)
@@ -118,25 +119,25 @@ def eta_of_cooldown():
     import matplotlib.ticker as ticker
     plt.gca().xaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
     results_eta_ratio = read_dict_from_json(folder="figures", filename="eta_ratio_vs_cooldown.json")
-    list_c, results_to_print = results_eta_ratio[400].keys(), {T: [results_eta_ratio[T][c] for c in results_eta_ratio[T]] for T in results_eta_ratio}
+    list_c, results_to_print = results_eta_ratio[1.4].keys(), {alpha: [results_eta_ratio[alpha][c] for c in results_eta_ratio[alpha]] for alpha in results_eta_ratio}
     X = [float(c) for c in list_c] 
-    for T in results_to_print:
-        print(f"T={T}: {results_to_print[T]}")
+    for alpha in results_to_print:
+        print(f"alpha={alpha}: {results_to_print[alpha]}")
         plot(
-            label=fr"$T={T}$",
+            label=fr"$\alpha={alpha}$",
             X=X,
-            Y=results_to_print[T],
-            xlabel="Cooldown Length (c)",
-            ylabel=r"$\log(\widetilde\gamma^*(T;1)) - \log(\widetilde\gamma^*(T;c))$",
+            Y=results_to_print[alpha],
+            xlabel=r"Cooldown Length ($c$)",
+            ylabel=r"$\log(\widetilde\gamma^*_T(1)) - \log(\widetilde\gamma^*_T(c))$",
             filename="eta_ratio_vs_cooldown.pdf",
             schedule=ScheduleCmap.WSD,
-            intensity=0.5 + 0.5 * (list(results_to_print.keys()).index(T) / max(1, len(results_to_print)-1)),
+            intensity=0.5 + 0.5 * (list(results_to_print.keys()).index(alpha) / max(1, len(results_to_print)-1)),
             save=False,
             close=False,
             show=False,
         )
     ax = plt.gca()
-    grouped_label_1 = r"$T \in \{" + ", ".join([f"{T}" for T in list(results_to_print.keys())]) + r"\}$"
+    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list(results_to_print.keys())]) + r"\}$"
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     # Create the custom legend using HandlerTuple to combine the lines horizontally
     ax.legend(
@@ -157,7 +158,7 @@ def wsd(c=0.2):
     plot(
         X=np.arange(1000),
         Y=wsd.schedule,
-        xlabel="Step",
+        xlabel=r"Step $t$",
         ylabel=r"$\eta_t$",
         filename=f"wsd_schedule_c={c}.pdf",
         schedule=ScheduleCmap.WSD,
@@ -538,7 +539,7 @@ def eta_optimization_constant():
     # plt.subplots_adjust(left=0.18, right=0.95, bottom=0.15, top=0.95)
     # ax.set_position([0.18, 0.15, 0.75, 0.75])
     grouped_label_1 = r"$\mathcal R_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
-    grouped_label_2 = r"$\widetilde \gamma^*(T), \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_2 = r"$\widetilde \gamma^*_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     dashed_lines = [line for line in ax.lines if line.get_linestyle() in ['--', 'dashed']]
     # Create the custom legend using HandlerTuple to combine the lines horizontally
@@ -592,7 +593,7 @@ def eta_optimization_linear():
     # plt.subplots_adjust(left=0.18, right=0.95, bottom=0.15, top=0.95)
     # ax.set_position([0.18, 0.15, 0.75, 0.75])
     grouped_label_1 = r"$\mathcal R_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
-    grouped_label_2 = r"$\widetilde \gamma^*(T), \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_2 = r"$\widetilde \gamma^*_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     dashed_lines = [line for line in ax.lines if line.get_linestyle() in ['--', 'dashed']]
     # Create the custom legend using HandlerTuple to combine the lines horizontally
@@ -609,9 +610,13 @@ def eta_optimization_linear():
     plt.show()
 
 
-def slock_vs_normal_comparison_linear():
-    results_variance_ratio = read_dict_from_json(folder="slock_linear_dim=100", filename="true_slock_vs_normal_variance_ratios.json")
-    results_bias_ratio = read_dict_from_json(folder="slock_linear_dim=100", filename="true_slock_vs_normal_bias_ratios.json")
+def slock_vs_normal_comparison_linear(gammastar=True):
+    if gammastar:
+        results_variance_ratio = read_dict_from_json(folder="slock_linear_dim=100", filename="true_slock_vs_normal_variance_ratios_GAMMASTAR.json")
+        results_bias_ratio = read_dict_from_json(folder="slock_linear_dim=100", filename="true_slock_vs_normal_bias_ratios_GAMMASTAR.json")
+    else:
+        results_variance_ratio = read_dict_from_json(folder="slock_linear_dim=100", filename="true_slock_vs_normal_variance_ratios.json")
+        results_bias_ratio = read_dict_from_json(folder="slock_linear_dim=100", filename="true_slock_vs_normal_bias_ratios.json")
     list_alphas = sorted(set(float(alpha) for alpha in results_variance_ratio.keys()))
     T_values = sorted(set(int(T) for T in results_variance_ratio[list_alphas[0]].keys()))
     variance_ratio = {float(alpha): {int(T): results_variance_ratio[alpha][str(T)] for T in results_variance_ratio[alpha]} for alpha in results_variance_ratio}
@@ -653,8 +658,10 @@ def slock_vs_normal_comparison_linear():
         loc="lower right"
     )
     plt.tight_layout()
-
-    plt.savefig(folder / "variance_ratio_slock_vs_normal.pdf",)
+    if gammastar:
+        plt.savefig(folder / "variance_ratio_slock_vs_normal_GAMMASTAR.pdf",)
+    else:
+        plt.savefig(folder / "variance_ratio_slock_vs_normal.pdf",)
     plt.show()
 
     for alpha in list_alphas:  
@@ -688,8 +695,11 @@ def slock_vs_normal_comparison_linear():
         loc="lower right"
     )
     plt.tight_layout()
-
-    plt.savefig(folder / "bias_ratio_slock_vs_normal.pdf",
+    if gammastar:
+        plt.savefig(folder / "bias_ratio_slock_vs_normal_GAMMASTAR.pdf",
+                )
+    else:
+        plt.savefig(folder / "bias_ratio_slock_vs_normal.pdf",
                 )
     plt.show()
 
@@ -1003,13 +1013,129 @@ def compare_constant_vs_wsd():
     plt.savefig(folder / "eta_opt_constant_vs_wsd_ratio.pdf")
     plt.show()
 
+def schaipp_plot():
+    plt.gca().xaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
+    from math import floor
+    #Defining theoretical gamma*
+    def eta_array(T, c):
+        eta = np.ones(T)
+        T0 = floor((1 - c) * T)
+        print(f"Cooldown length c={c} corresponds to T0={T0} for T={T}.")
+        eta[T0:] = np.linspace(1.0, 0.0, T - T0 + 2)[1:-1]
+        return eta
+
+    def calculate_T1(eta, D):
+        # Calculate the sum of all eta values from t=1 to T
+        sum_eta = np.sum(eta)
+        
+        # Calculate T1 according to the first formula
+        T1 = (1.0 / (2.0 * sum_eta)) * (D ** 2)
+        return T1
+
+    def calculate_T2(eta, G):
+        T = len(eta)
+        sum_eta = np.sum(eta)
+        
+        # Calculate the first term of T2
+        first_term = (1.0 / (2.0 * sum_eta)) * np.sum((eta ** 2) * (G ** 2))
+        
+        # Calculate the second term of T2
+        second_term = 0.0
+        
+        # In Python, range(T-1) goes from 0 to T-2. 
+        # This correctly maps to the mathematical sum from k=1 to T-1
+        for k in range(T - 1):
+            # Slice from k+1 to the end (t=k+1 to T in math)
+            sum_eta_k_plus_1 = np.sum(eta[k+1:])
+            
+            # Slice from k to the end (t=k to T in math)
+            sum_eta_k = np.sum(eta[k:])
+            
+            # Sum of eta_t^2 * G_t^2 from t=k to T
+            sum_eta_sq_G_sq = np.sum((eta[k:] ** 2) * (G[k:] ** 2))
+            
+            # Accumulate the value for the current k
+            second_term += (eta[k] / sum_eta_k_plus_1) * (1.0 / sum_eta_k) * sum_eta_sq_G_sq
+            
+        second_term *= 0.5
+        
+        return first_term + second_term
+
+    def calculate_gamma_star(eta, G, D):
+       
+        T1 = calculate_T1(eta, D)
+        T2 = calculate_T2(eta, G)
+        
+        # Calculate the final optimal gamma
+        gamma_star = np.sqrt(T1 / T2)
+        return gamma_star
+
+    schaipp_theoretical_gammastar = {}
+    for c in np.linspace(0.0, .98, 20):
+        eta = eta_array(T=10000, c=c)
+        G = np.ones(10000)
+        D = 1.0
+        schaipp_theoretical_gammastar[c] = calculate_gamma_star(eta, G, D)
+
+
+    empirical_results = read_dict_from_json(folder="schaipp", filename="schaipp_best_lr.json")
+    c_values = sorted(set(float(c) for c in empirical_results.keys()))
+    log_ratio = {c: np.log(empirical_results[0.994]) - np.log(empirical_results[c]) for c in c_values}
+
+    theoretical_c_values = sorted(set(float(c) for c in schaipp_theoretical_gammastar.keys()))
+    theoretical_max_c = max(theoretical_c_values)
+    plot(
+            X=theoretical_c_values,
+            Y=[np.log(schaipp_theoretical_gammastar[theoretical_max_c]) - np.log(schaipp_theoretical_gammastar[c]) for c in theoretical_c_values],
+            xlabel=r"Cooldown Length ($c$)",
+            ylabel=r"$\log(\gamma^*(1)) - \log(\gamma^*(c))$",
+            filename=f"schaipp_plot.pdf",
+            label = "Theoretical",
+            linestyle='--',
+            marker='',
+            save=False,
+            show=False,
+            close=False,
+            legend=True,
+            schedule=ScheduleCmap.WSD,
+            intensity=0.6,
+            xscale='linear',
+            yscale='linear',
+        )
+
+    plot(
+        X=c_values,
+        Y=[log_ratio[c] for c in c_values],
+        xlabel=r"Cooldown Length ($c$)",
+        ylabel=r"$\log(\gamma^*(1)) - \log(\gamma^*(c))$",
+        filename=f"schaipp_plot.pdf",
+        label = "Empirical",
+        save=False,
+        show=False,
+        close=False,
+        legend=True,
+        schedule=ScheduleCmap.WSD,
+        intensity=0.9,
+        xscale='linear',
+        yscale='linear',
+        marker='.',
+    )
+    print(schaipp_theoretical_gammastar)
+    ax = plt.gca()
+
+    plt.xlim(0, 1)
+    plt.tight_layout()
+    plt.savefig(folder/"schaipp_plot.pdf", bbox_inches='tight', pad_inches=0.1)
+    plt.show()
+    plt.close()
+
 if __name__ == "__main__":
             
     #wsd(c=0.4)
     #asymptotics_vs_true_constant()
     #sgd_vs_formula_constant()
     #sgd_vs_formula_linear()
-    slock_vs_normal_comparison_linear()
+    #slock_vs_normal_comparison_linear(gammastar=True)
     #asymptotics_vs_true_constant()
     #asymptotics_vs_true_linear()
     #asymptotics_vs_true_wsd()
@@ -1023,5 +1149,6 @@ if __name__ == "__main__":
     #batch_bT_constant()
     #steps_to_fixed_risk()
     #compare_constant_vs_wsd()
+    schaipp_plot()
 
 # %%

@@ -390,25 +390,27 @@ plt.show()
 
 
 #FIGURE 11 Fabian
-T_list = [400, 1600, 6400, 25600, 102400]
+T = 100 #not important
 c_list = np.linspace(0.01, 1.0, 100)
-colors = plt.get_cmap("viridis")(np.linspace(0, 1, len(T_list)))
+alphas = [1.4, 1.8, 2.2, 2.6]
+colors = plt.get_cmap("viridis")(np.linspace(0, 1, len(alphas)))
 
 results_eta_ratio = {}
-for T in T_list:
-    results_eta_ratio[T] = {}
+for alpha in alphas:
+    results_eta_ratio[alpha] = {}
+    slock_wsd._update_model_for_alpha(alpha)  # Update model for the specific alpha
     slock_wsd._setup_for_T(T, cooldown_len=1.0)  # Setup for T with a placeholder learning rate
     eta_1 = slock_wsd.compute_best_slock_eta(T=T, m_constant=Delta, c=1.0)  # Compute eta_star for cooldown length 1
     for c in c_list:
         slock_wsd._setup_for_T(T, cooldown_len=c) 
         eta_star = slock_wsd.compute_best_slock_eta(T=T, m_constant=Delta, c=c)
-        results_eta_ratio[T][c] = np.log(eta_1 / eta_star)
-        print(f"T={T}, cooldown={c}, eta_star={eta_star}, eta_1={eta_1}, ratio={results_eta_ratio[T][c]}")
+        results_eta_ratio[alpha][c] = np.log(eta_1 / eta_star)
+        print(f"T={T}, cooldown={c}, eta_star={eta_star}, eta_1={eta_1}, ratio={results_eta_ratio[alpha][c]}")
 
 plt.figure(figsize=(12, 8))
-for T in T_list:
-    color = colors[T_list.index(T)]
-    plt.plot(c_list, [results_eta_ratio[T][c] for c in c_list], label=f"T={T}", marker='o', color=color)
+for alpha in alphas:
+    color = colors[alphas.index(alpha)]
+    plt.plot(c_list, [results_eta_ratio[alpha][c] for c in c_list], label=f"alpha={alpha}", marker='o', color=color)
 plt.xscale('linear')
 plt.xlabel("Cooldown Length (c)")
 plt.ylabel("log(eta_star(1) / eta_star(c))")

@@ -142,6 +142,8 @@ print(ratios_variance)
 print(ratios_bias)
 # %%
 #COMPARE TRUE SLOCK vs NORMAL
+
+gammastar = True
 dim = 100
 eta = .001
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=1.3)
@@ -162,7 +164,8 @@ for alpha in list_alphas:
     true_normal_bias[alpha], true_normal_variance[alpha] = {}, {}
     for T in T_values:
         print(f"Computing true SLOCK and Normal biases and variances for alpha={alpha}, T={T}...")
-        #eta = slock_linear.compute_best_slock_eta(T, Delta)
+        if gammastar:
+            eta = slock_linear.compute_best_slock_eta(T, Delta)
         slock_linear._setup_for_T(T, base_lr=eta)
         true_slock_bias[alpha][T], true_slock_variance[alpha][T] = slock_linear.compute_slock_biases_and_variances([T])
         true_normal_bias[alpha][T], true_normal_variance[alpha][T] = slock_linear.compute_true_biases_and_variances([T])
@@ -220,6 +223,10 @@ plt.grid()
 plt.savefig(f"images/slock/_LINEAR_true_variance_ratio_trajectories_comparison_.pdf")
 plt.show()
 # %%
-save_dict_to_json({str(alpha): {str(T): ratios_variance[alpha][T] for T in T_values} for alpha in list_alphas}, folder=f"slock_linear_dim={dim}", filename="true_slock_vs_normal_variance_ratios.json")
-save_dict_to_json({str(alpha): {str(T): ratios_bias[alpha][T] for T in T_values} for alpha in list_alphas}, folder=f"slock_linear_dim={dim}", filename="true_slock_vs_normal_bias_ratios.json")
+if gammastar:
+    save_dict_to_json({str(alpha): {str(T): ratios_variance[alpha][T] for T in T_values} for alpha in list_alphas}, folder=f"slock_linear_dim={dim}", filename="true_slock_vs_normal_variance_ratios_GAMMASTAR.json")
+    save_dict_to_json({str(alpha): {str(T): ratios_bias[alpha][T] for T in T_values} for alpha in list_alphas}, folder=f"slock_linear_dim={dim}", filename="true_slock_vs_normal_bias_ratios_GAMMASTAR.json")
+else:
+    save_dict_to_json({str(alpha): {str(T): ratios_variance[alpha][T] for T in T_values} for alpha in list_alphas}, folder=f"slock_linear_dim={dim}", filename="true_slock_vs_normal_variance_ratios.json")
+    save_dict_to_json({str(alpha): {str(T): ratios_bias[alpha][T] for T in T_values} for alpha in list_alphas}, folder=f"slock_linear_dim={dim}", filename="true_slock_vs_normal_bias_ratios.json")
 # %%
