@@ -69,6 +69,30 @@ class BaseSGD(ABC):
             plt.ylabel("loss")
             plt.legend()
         return self.losses
+
+    def sample_slock_separate(self, label="SGD", show=True, n_samples=1):
+        T = self.T
+        loss_bias = np.zeros((n_samples, T + 1))
+        loss_var  = np.zeros((n_samples, T + 1))
+        loss_bias[:, 0] = self.model.compute_risk(self.x0)
+        loss_var[:, 0]  = 0.0
+
+        for n in range(n_samples):
+            xs = np.asarray(self.model.x_star, dtype=float).reshape(-1, 1)
+            xb = np.asarray(self.x0, dtype=float).reshape(-1, 1)   # theta_0
+            xv = xs.copy()                                          # theta_*
+            Phi, Eps = self.model.generate_slock(n_samples=T, epsilon_mode=True)
+
+            for t in range(T):
+                phi = Phi[t].reshape(-1, 1)
+                lr  = self.get_step(t)
+                xb = xb - lr * phi * (phi.T @ (xb - xs))              # y = phi^T xstar, pas de bruit
+                xv = xv - lr * phi * ((phi.T @ (xv - xs)) - Eps[t])   # bruit seul
+                loss_bias[n, t + 1] = self.model.compute_risk(xb)
+                loss_var[n,  t + 1] = self.model.compute_risk(xv)
+
+        self.losses = (loss_bias.mean(axis=0), loss_var.mean(axis=0))
+        return self.losses
     
     def compute_theoretical_risk(self, t) -> float:
         """

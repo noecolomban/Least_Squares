@@ -138,7 +138,7 @@ class PowerLawRegression(LinearRegression):
         H = Q @ Lambda_matrix @ Q.T
         return H
     
-    def generate_slock(self, n_samples=None):
+    def generate_slock(self, n_samples=None, epsilon_mode=False):
         if n_samples is None:
             n_samples = self.n_samples
             
@@ -170,8 +170,12 @@ class PowerLawRegression(LinearRegression):
         
         self.phi = phi
         self.Y = y
-        
-        return phi, y
+
+        if epsilon_mode:
+            return phi, epsilon
+        else:
+            return phi, y
+   
 
 
 
