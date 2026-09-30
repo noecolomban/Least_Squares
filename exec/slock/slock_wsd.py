@@ -15,7 +15,7 @@ from src.asymptotics import (
 )
 from src.utils import save_dict_to_json
 # %%
-dim = 100
+dim = 1000
 sigma = 0.1
 exponent = 1.5 #alpha
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)
@@ -39,7 +39,7 @@ mode = Mode.SLOCK
 
 def changing_dim(T, alpha):
     #return int((T/100)**(1/alpha))
-    return 100
+    return 1000
     #return min(1000, int(10 * (T/10)**(1/alpha)))
     #return min(T, 2000)
 

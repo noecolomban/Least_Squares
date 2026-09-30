@@ -18,23 +18,23 @@ folder.mkdir(exist_ok=True)
 
 
 #DIMENSIONS = (3, 2)
-#DIMENSIONS = (3.7, 2.7)  # Width and height in inches for LaTeX document
-DIMENSIONS = (4,3)
+DIMENSIONS = (3.7, 2.7)  # Width and height in inches for LaTeX document
+#DIMENSIONS = (4,3)
 
 plt.rcParams.update({
     "text.usetex": True,                   # Use LaTeX to write all text
     "font.family": "serif",                # Use serif fonts
     "font.serif": ["Computer Modern"],     # LaTeX's default font
-    # "axes.labelsize": 16,                  # Match your LaTeX document font size (e.g., 11pt)
-    # "font.size": 16,                       # Base font size
-    # "legend.fontsize": 14,                  # Slightly smaller for legends
-    # "xtick.labelsize": 9,                  # Tick labels
-    # "ytick.labelsize": 9,
-    "axes.labelsize": 11,                  # Match your LaTeX document font size (e.g., 11pt)
-    "font.size": 11,                       # Base font size
-    "legend.fontsize": 11,                  # Slightly smaller for legends
+    "axes.labelsize": 16,                  # Match your LaTeX document font size (e.g., 11pt)
+    "font.size": 16,                       # Base font size
+    "legend.fontsize": 14,                  # Slightly smaller for legends
     "xtick.labelsize": 9,                  # Tick labels
     "ytick.labelsize": 9,
+    # "axes.labelsize": 11,                  # Match your LaTeX document font size (e.g., 11pt)
+    # "font.size": 11,                       # Base font size
+    # "legend.fontsize": 11,                  # Slightly smaller for legends
+    # "xtick.labelsize": 9,                  # Tick labels
+    # "ytick.labelsize": 9,
     "figure.figsize": DIMENSIONS,          # Figure size in inches (match LaTeX \textwidth)
     "pgf.texsystem": "pdflatex",           # Use pdflatex for processing
     "pgf.rcfonts": False,                  # Don't setup fonts from rc parameters
@@ -154,6 +154,7 @@ def eta_of_cooldown():
         handleheight=2.5, # Increase the height of the legend box to fit all lines comfortably
         loc="upper right"
     )
+    plt.ylim(-0.1, 1.75)
     plt.tight_layout()
     plt.savefig(folder / "eta_ratio_vs_cooldown.pdf", bbox_inches='tight', pad_inches=0.1)
     plt.show()
@@ -1214,7 +1215,8 @@ def schaipp_plot():
     print(schaipp_theoretical_gammastar)
     ax = plt.gca()
 
-    plt.xlim(0, 1)
+    #plt.xlim(0, 1)
+    plt.ylim(-0.1, 1.75)
     plt.tight_layout()
     plt.savefig(folder/"schaipp_plot.pdf", bbox_inches='tight', pad_inches=0.1)
     plt.show()
@@ -1222,11 +1224,9 @@ def schaipp_plot():
 
 if __name__ == "__main__":
             
-    wsd(c=0.4)
-    plt.close()
-    asymptotics_vs_true_constant()
-    asymptotics_vs_true_wsd()
-    compare_constant_vs_wsd()
+    #asymptotics_vs_true_wsd(dim=1000)
+    eta_of_cooldown()
+    schaipp_plot()
 
     """
     plt.close()
