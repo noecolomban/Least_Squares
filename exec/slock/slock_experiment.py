@@ -40,14 +40,14 @@ schedule = ConstantSchedule(steps=max(T_values), base_lr=eta)
 sgd = SGD(model, x0, schedule)
 
 #%%
-#losses = sgd.sample_slock(show=False, n_samples=100)
+losses = sgd.sample_slock(show=False, n_samples=50)
 
-losses_bias, losses_variance = sgd.sample_slock_separate(show=False, n_samples=100)
+#losses_bias, losses_variance = sgd.sample_slock_separate(show=False, n_samples=100)
 
-#Noiseless case:
-model_noiseless = PowerLawRegression(dim=dim, sigma=0, exponent=exponent)
-slock_constant_noiseless = SlockConstant(model_noiseless, x0, T_max=max(T_values), optimize=optimize, base_lr=eta, beta=beta)
-sgd_noiseless = SGD(model_noiseless, x0, schedule)
+# #Noiseless case:
+# model_noiseless = PowerLawRegression(dim=dim, sigma=0, exponent=exponent)
+# slock_constant_noiseless = SlockConstant(model_noiseless, x0, T_max=max(T_values), optimize=optimize, base_lr=eta, beta=beta)
+# sgd_noiseless = SGD(model_noiseless, x0, schedule)
 
 
 biases, variances = slock_constant.compute_slock_biases_and_variances(T_values)
@@ -71,12 +71,12 @@ plt.legend()
 # %%
 
 to_save = {
-    #"sgd": {int(T): losses[int(T)-1] for T in np.arange(1, max(T_values)+1)},
-    #"true": slock_risks,
-    "sgd_bias": {int(T): losses_bias[int(T)-1] for T in np.arange(1, max(T_values)+1)},
-    "sgd_variance": {int(T): losses_variance[int(T)-1] for T in np.arange(1, max(T_values)+1)},
-    "theory_bias": {int(T): biases[T] for T in T_values},
-    "theory_variance": {int(T): variances[T] for T in T_values}
+    "sgd": {int(T): losses[int(T)-1] for T in np.arange(1, max(T_values)+1)},
+    "true": slock_risks,
+    #"sgd_bias": {int(T): losses_bias[int(T)-1] for T in np.arange(1, max(T_values)+1)},
+    #"sgd_variance": {int(T): losses_variance[int(T)-1] for T in np.arange(1, max(T_values)+1)},
+    #"theory_bias": {int(T): biases[T] for T in T_values},
+    #"theory_variance": {int(T): variances[T] for T in T_values}
 }
 save_dict_to_json(to_save, folder=f"slock_experiment_dim={dim}", filename=f"losses_and_risks_alpha={exponent}_beta={beta}_L={eta}_Delta={Delta}_sigma={sigma}.json")
 

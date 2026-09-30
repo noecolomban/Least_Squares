@@ -14,7 +14,7 @@ from src.asymptotics import (
 )
 from src.utils import save_dict_to_json
 # %%
-dim = 100
+dim = 1000
 sigma = 0.1
 exponent = 2 #alpha
 model = PowerLawRegression(dim=dim, sigma=sigma, exponent=exponent)

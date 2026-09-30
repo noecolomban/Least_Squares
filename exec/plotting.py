@@ -17,17 +17,22 @@ folder = pathlib.Path(__file__).parent.resolve() / "plots"
 folder.mkdir(exist_ok=True)
 
 
-#DIMENSIONS = (2, 1.5)
-#DIMENSIONS = (3.5, 2.5)  # Width and height in inches for LaTeX document
+#DIMENSIONS = (3, 2)
+#DIMENSIONS = (3.7, 2.7)  # Width and height in inches for LaTeX document
 DIMENSIONS = (4,3)
 
 plt.rcParams.update({
     "text.usetex": True,                   # Use LaTeX to write all text
     "font.family": "serif",                # Use serif fonts
     "font.serif": ["Computer Modern"],     # LaTeX's default font
+    # "axes.labelsize": 16,                  # Match your LaTeX document font size (e.g., 11pt)
+    # "font.size": 16,                       # Base font size
+    # "legend.fontsize": 14,                  # Slightly smaller for legends
+    # "xtick.labelsize": 9,                  # Tick labels
+    # "ytick.labelsize": 9,
     "axes.labelsize": 11,                  # Match your LaTeX document font size (e.g., 11pt)
     "font.size": 11,                       # Base font size
-    "legend.fontsize": 9,                  # Slightly smaller for legends
+    "legend.fontsize": 11,                  # Slightly smaller for legends
     "xtick.labelsize": 9,                  # Tick labels
     "ytick.labelsize": 9,
     "figure.figsize": DIMENSIONS,          # Figure size in inches (match LaTeX \textwidth)
@@ -116,6 +121,7 @@ class VerticalLineHandler(HandlerBase):
 
 def eta_of_cooldown():
     #Dimensions = (4,3)
+    plt.close()
     import matplotlib.ticker as ticker
     plt.gca().xaxis.set_major_locator(ticker.MaxNLocator(nbins=10))
     results_eta_ratio = read_dict_from_json(folder="figures", filename="eta_ratio_vs_cooldown.json")
@@ -128,7 +134,7 @@ def eta_of_cooldown():
             X=X,
             Y=results_to_print[alpha],
             xlabel=r"Cooldown Length ($c$)",
-            ylabel=r"$\log(\widetilde\gamma^*_T(1)) - \log(\widetilde\gamma^*_T(c))$",
+            ylabel=r"$\log(\widetilde\gamma^*_T(1)/\widetilde\gamma^*_T(c))$",
             filename="eta_ratio_vs_cooldown.pdf",
             schedule=ScheduleCmap.WSD,
             intensity=0.5 + 0.5 * (list(results_to_print.keys()).index(alpha) / max(1, len(results_to_print)-1)),
@@ -137,7 +143,8 @@ def eta_of_cooldown():
             show=False,
         )
     ax = plt.gca()
-    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list(results_to_print.keys())]) + r"\}$"
+    #grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list(results_to_print.keys())]) + r"\}$"
+    grouped_label_1 = r"$\alpha \in \mathcal S_\alpha$"
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     # Create the custom legend using HandlerTuple to combine the lines horizontally
     ax.legend(
@@ -169,49 +176,125 @@ def wsd(c=0.2):
     )
     #plt.axhline(xmin=1-c, xmax=1, y=0.5, color='r', linestyle=':', label=r'$c \times T$')
 
-def sgd_vs_formula_constant():
-    results = read_dict_from_json(folder="slock_experiment_dim=100", filename="losses_and_risks_alpha=1.5_beta=2_L=0.1_Delta=1_sigma=0.1.json")
-    print("Results loaded for SGD vs Computed Risk comparison.")
-    sgd_values = {int(T): results["sgd"][T] for T in results["sgd"].keys()}
-    true_values = {int(T): results["true"][T] for T in results["true"].keys()}
-    print(f"SGD values: {list(sgd_values.items())[:5]} ...")
-    print(f"True values: {list(true_values.items())[:5]} ...")
-            
-    plot(
-        X=list(sgd_values.keys()),
-        Y=list(sgd_values.values()),
-        xlabel="Step",
-        ylabel="Loss",
-        filename=f"sgd_vs_formula_constant.pdf",
-        label="SGD Loss",
-        save=False,
-        show=False,
-        close=False,
-        schedule=ScheduleCmap.CONSTANT,
-        intensity=0.5,
-        linewidth=2
-    )
-    plot(
-        X=list(true_values.keys()),
-        Y=list(true_values.values()),
-        xlabel="Step",
-        ylabel="Loss / Risk",
-        filename=f"sgd_vs_formula_constant.pdf",
-        label=r"Risk $\mathcal R_T$",
-        xscale='log',
-        yscale='log',
-        save=True,
-        show=True,
-        close=True,
-        legend=True,
-        schedule=ScheduleCmap.CONSTANT,
-        intensity=1.0,
-        linewidth=1,
-        linestyle='--',
-        marker='.',
-    )
+def sgd_vs_formula_constant(separate=False):
+    if not separate:
+        results = read_dict_from_json(folder="slock_experiment_dim=100", filename="losses_and_risks_alpha=1.5_beta=2_L=0.1_Delta=1_sigma=0.1.json")
+        print("Results loaded for SGD vs Computed Risk comparison.")
+        sgd_values = {int(T): results["sgd"][T] for T in results["sgd"].keys()}
+        true_values = {int(T): results["true"][T] for T in results["true"].keys()}
+        print(f"SGD values: {list(sgd_values.items())[:5]} ...")
+        print(f"True values: {list(true_values.items())[:5]} ...")
+                
+        plot(
+            X=list(sgd_values.keys()),
+            Y=list(sgd_values.values()),
+            xlabel="Step",
+            ylabel="Loss",
+            filename=f"sgd_vs_formula_constant.pdf",
+            label="SGD Loss",
+            save=False,
+            show=False,
+            close=False,
+            schedule=ScheduleCmap.CONSTANT,
+            intensity=0.5,
+            linewidth=2
+        )
+        plot(
+            X=list(true_values.keys()),
+            Y=list(true_values.values()),
+            xlabel="Step",
+            ylabel="Loss / Risk",
+            filename=f"sgd_vs_formula_constant.pdf",
+            label=r"Risk $\mathcal R_T$",
+            xscale='log',
+            yscale='log',
+            save=True,
+            show=True,
+            close=True,
+            legend=True,
+            schedule=ScheduleCmap.CONSTANT,
+            intensity=1.0,
+            linewidth=1,
+            linestyle='--',
+            marker='.',
+        )
+    else:
+        results = read_dict_from_json(folder="slock_experiment_dim=100", filename="losses_and_risks_alpha=1.5_beta=2_L=0.1_Delta=1_sigma=0.1.json")
+        print("Results loaded for SGD vs Computed Risk comparison.")
+        sgd_bias_values = {int(T): results["sgd_bias"][T] for T in results["sgd_bias"].keys()}
+        sgd_variance_values = {int(T): results["sgd_variance"][T] for T in results["sgd_variance"].keys()}
+        true_bias_values = {int(T): results["theory_bias"][T] for T in results["theory_bias"].keys()}
+        true_variance_values = {int(T): results["theory_variance"][T] for T in results["theory_variance"].keys()}
+        print(f"SGD Bias values: {list(sgd_bias_values.items())[:5]} ...")
+        print(f"SGD Variance values: {list(sgd_variance_values.items())[:5]} ...")
+        print(f"True Bias values: {list(true_bias_values.items())[:5]} ...")
+        print(f"True Variance values: {list(true_variance_values.items())[:5]} ...")
+        
+        plot(
+            X=list(sgd_bias_values.keys()),
+            Y=list(sgd_bias_values.values()),
+            xlabel="Step",
+            ylabel="Loss",
+            filename=f"sgd_vs_formula_constant_separate_bias.pdf",
+            label="SGD Bias",
+            save=False,
+            show=False,
+            close=False,
+            yscale='log',
+            schedule=ScheduleCmap.CONSTANT,
+            intensity=0.5,
+            linewidth=2
+        )
+        
+        plot(
+            X=list(true_bias_values.keys()),
+            Y=list(true_bias_values.values()),
+            xlabel="Step",
+            ylabel="Loss / Risk",
+            filename=f"sgd_vs_formula_constant_separate_bias.pdf",
+            label=r"Bias $B_{T}$",
+            save=True,
+            show=True,
+            close=False,
+            legend=True,
+            yscale='log',
+            schedule=ScheduleCmap.CONSTANT,
+            intensity=1.0,
+            linewidth=2
+        )
+        plot(
+            X=list(sgd_variance_values.keys()),
+            Y=list(sgd_variance_values.values()),
+            xlabel="Step",
+            ylabel="Loss",
+            filename=f"sgd_vs_formula_constant_separate_variance.pdf",
+            label="SGD Variance",
+            save=False,
+            show=False,
+            close=False,
+            schedule=ScheduleCmap.CONSTANT,
+            intensity=0.7,
+            linewidth=2
+        )
+        plot(
+            X=list(true_variance_values.keys()),
+            Y=list(true_variance_values.values()),
+            xlabel="Step",
+            ylabel="Loss / Risk",
+            filename=f"sgd_vs_formula_constant_separate_variance.pdf",
+            label=r"Variance $V_T$",
+            yscale='linear',
+            save=True,
+            show=True,
+            close=True,
+            legend=True,
+            schedule=ScheduleCmap.CONSTANT,
+            intensity=1.0,
+            linewidth=2
+        )
 
-def sgd_vs_formula_linear():
+def sgd_vs_formula_linear(separate=False):
+    plt.close()
     results = read_dict_from_json(folder="slock_experiment_dim=100", filename="LINEAR_losses_and_risks_alpha=1.5_beta=2_L=0.1_Delta=1_sigma=0.1.json")
     print("Results loaded for SGD vs Computed Risk comparison.")
     sgd_values = {}
@@ -291,7 +374,7 @@ def asymptotics_vs_true_constant(dim=100):
         )
     ax = plt.gca()
         
-    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_1 = r"$\alpha \in \mathcal S_\alpha$"
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     solid_lines = solid_lines[:len(list_alphas)]
     # Create the custom legend using HandlerTuple to combine the lines horizontally
@@ -327,7 +410,8 @@ def asymptotics_vs_true_constant(dim=100):
         )
     ax = plt.gca()
         
-    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    #grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_1 = r"$\alpha \in \mathcal S_\alpha$"
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     solid_lines = solid_lines[:len(list_alphas)]
     # Create the custom legend using HandlerTuple to combine the lines horizontally
@@ -406,7 +490,7 @@ def asymptotics_vs_true_linear(dim=100):
             marker='.',
         )
     ax = plt.gca()  
-    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_1 = r"$\alpha \in \mathcal S_\alpha$"
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     solid_lines = solid_lines[:len(list_alphas)]
     # Create the custom legend using HandlerTuple to combine the lines horizontally
@@ -452,7 +536,7 @@ def asymptotics_vs_true_wsd(dim=100):
             marker='.',
         )
     ax = plt.gca()
-    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_1 = r"$\alpha \in \mathcal S_\alpha$"
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     solid_lines = solid_lines[:len(list_alphas)]
     # Create the custom legend using HandlerTuple to combine the lines horizontally
@@ -485,7 +569,7 @@ def asymptotics_vs_true_wsd(dim=100):
             marker='.',
         )
     ax = plt.gca()    
-    grouped_label_1 = r"$\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_1 = r"$\alpha \in \mathcal S_\alpha$"
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     solid_lines = solid_lines[:len(list_alphas)]
     # Create the custom legend using HandlerTuple to combine the lines horizontally
@@ -538,8 +622,10 @@ def eta_optimization_constant():
     ax.xaxis.set_minor_formatter(ticker.NullFormatter())
     # plt.subplots_adjust(left=0.18, right=0.95, bottom=0.15, top=0.95)
     # ax.set_position([0.18, 0.15, 0.75, 0.75])
-    grouped_label_1 = r"$\mathcal R_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
-    grouped_label_2 = r"$\widetilde \gamma^*_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    #grouped_label_1 = r"$\mathcal R_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_1 = r"$\mathcal R_T, \alpha \in \mathcal S_\alpha$"
+    #grouped_label_2 = r"$\widetilde \gamma^*_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_2 = r"$\widetilde \gamma^*_T, \alpha \in \mathcal S_\alpha$"
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     dashed_lines = [line for line in ax.lines if line.get_linestyle() in ['--', 'dashed']]
     # Create the custom legend using HandlerTuple to combine the lines horizontally
@@ -592,8 +678,10 @@ def eta_optimization_linear():
     # ax.xaxis.set_minor_formatter(ticker.NullFormatter())
     # plt.subplots_adjust(left=0.18, right=0.95, bottom=0.15, top=0.95)
     # ax.set_position([0.18, 0.15, 0.75, 0.75])
-    grouped_label_1 = r"$\mathcal R_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
-    grouped_label_2 = r"$\widetilde \gamma^*_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    #grouped_label_1 = r"$\mathcal R_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    #grouped_label_2 = r"$\widetilde \gamma^*_T, \alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_1 = r"$\mathcal R_T, \alpha \in \mathcal S_\alpha$"
+    grouped_label_2 = r"$\widetilde \gamma^*_T, \alpha \in \mathcal S_\alpha$"
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     dashed_lines = [line for line in ax.lines if line.get_linestyle() in ['--', 'dashed']]
     # Create the custom legend using HandlerTuple to combine the lines horizontally
@@ -917,8 +1005,10 @@ def steps_to_fixed_risk():
     plt.show()
 
 def compare_constant_vs_wsd():
+    plt.close()
     results_constant = read_dict_from_json(folder="slock_compare_wsd_constant", filename="CONSTANT_d=100.json")
     results_wsd = read_dict_from_json(folder="slock_compare_wsd_constant", filename="WSD_d=100.json")
+    print("Results loaded for Constant vs WSD comparison.")
     list_alphas = sorted(set(float(alpha) for alpha in results_constant.keys()))
     t_values = sorted(set(int(t) for t in results_constant[list_alphas[0]].keys()))     
     for alpha in list_alphas:
@@ -959,8 +1049,8 @@ def compare_constant_vs_wsd():
         
     ax = plt.gca()    
     
-    grouped_label_1 = r"Constant, $\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
-    grouped_label_2 = r"WSD, $\alpha \in \{" + ", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_1 = r"Constant"
+    grouped_label_2 = r"WSD"
     
     solid_lines = [line for line in ax.lines if line.get_linestyle() in ['-', 'solid']]
     
@@ -1001,13 +1091,14 @@ def compare_constant_vs_wsd():
             marker='',
         )
     ax = plt.gca()
-    grouped_label_1 = r"WSD / Constant, $\alpha \in \{" +", ".join([f"{alpha}" for alpha in list_alphas]) + r"\}$"
+    grouped_label_1 = r"$\alpha \in \mathcal S_\alpha$"
+    
     ax.legend(
         [tuple(line for line in ax.lines if line.get_linestyle() in ['-', 'solid'])],
         [grouped_label_1],
         handler_map={tuple: VerticalLineHandler()},
         handleheight=2.5,
-        loc="lower left",
+        loc="upper left",
     )
     plt.tight_layout()
     plt.savefig(folder / "eta_opt_constant_vs_wsd_ratio.pdf")
@@ -1088,7 +1179,7 @@ def schaipp_plot():
             X=theoretical_c_values,
             Y=[np.log(schaipp_theoretical_gammastar[theoretical_max_c]) - np.log(schaipp_theoretical_gammastar[c]) for c in theoretical_c_values],
             xlabel=r"Cooldown Length ($c$)",
-            ylabel=r"$\log(\gamma^*(1)) - \log(\gamma^*(c))$",
+            ylabel=r"$\log(\gamma^*(1)/\gamma^*(c))$",
             filename=f"schaipp_plot.pdf",
             label = "Theoretical",
             linestyle='--',
@@ -1107,7 +1198,7 @@ def schaipp_plot():
         X=c_values,
         Y=[log_ratio[c] for c in c_values],
         xlabel=r"Cooldown Length ($c$)",
-        ylabel=r"$\log(\gamma^*(1)) - \log(\gamma^*(c))$",
+        ylabel=r"$\log(\gamma^*(1)/\gamma^*(c))$",
         filename=f"schaipp_plot.pdf",
         label = "Empirical",
         save=False,
@@ -1131,24 +1222,33 @@ def schaipp_plot():
 
 if __name__ == "__main__":
             
-    #wsd(c=0.4)
+    wsd(c=0.4)
+    plt.close()
+    asymptotics_vs_true_constant()
+    asymptotics_vs_true_wsd()
+    compare_constant_vs_wsd()
+
+    """
+    plt.close()
     #asymptotics_vs_true_constant()
-    #sgd_vs_formula_constant()
-    #sgd_vs_formula_linear()
+    sgd_vs_formula_constant(False)
+    sgd_vs_formula_linear()
     #slock_vs_normal_comparison_linear(gammastar=True)
-    #asymptotics_vs_true_constant()
+    asymptotics_vs_true_constant()
     #asymptotics_vs_true_linear()
-    #asymptotics_vs_true_wsd()
-    #eta_optimization_constant()
-    #eta_optimization_linear()
-    #cooldown_length_comparing_at_eta_star()
-    #eta_of_cooldown()
+    asymptotics_vs_true_wsd()
+    eta_optimization_constant()
+    eta_optimization_linear()
+    cooldown_length_comparing_at_eta_star()
+    eta_of_cooldown()
     #slock_vs_normal_comparison_linear()
     #cooldown_length_comparing_at_eta_star()
     #cooldown_length_comparing_fixed_eta()
     #batch_bT_constant()
     #steps_to_fixed_risk()
-    #compare_constant_vs_wsd()
-    schaipp_plot()
+    compare_constant_vs_wsd()
+    schaipp_plot()"""
+
+
 
 # %%
